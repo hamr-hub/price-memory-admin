@@ -28,4 +28,21 @@ export const api = {
     const j: any = await http(`${API_BASE}/users/${userId}/follows`, { method: "POST", body: JSON.stringify({ product_id: productId }) });
     return j.data;
   },
+  async listAlerts(userId?: number, productId?: number) {
+    const q = [userId ? `user_id=${userId}` : "", productId ? `product_id=${productId}` : ""].filter(Boolean).join("&");
+    const j: any = await http(`${API_BASE}/alerts${q ? `?${q}` : ""}`);
+    return j.data || [];
+  },
+  async createAlert(userId: number, productId: number, ruleType: string, threshold?: number) {
+    const j: any = await http(`${API_BASE}/alerts`, { method: "POST", body: JSON.stringify({ user_id: userId, product_id: productId, rule_type: ruleType, threshold }) });
+    return j.data;
+  },
+  async updateAlertStatus(alertId: number, status: "active" | "paused") {
+    const j: any = await http(`${API_BASE}/alerts/${alertId}/status`, { method: "POST", body: JSON.stringify({ status }) });
+    return j.data;
+  },
+  async deleteAlert(alertId: number) {
+    const j: any = await http(`${API_BASE}/alerts/${alertId}`, { method: "DELETE" });
+    return j.data;
+  },
 };
