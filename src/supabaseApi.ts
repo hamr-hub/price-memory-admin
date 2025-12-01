@@ -82,7 +82,7 @@ export function sbSubscribePushes(userId: number, handler: (payload: any) => voi
     .on(
       "postgres_changes",
       { event: "INSERT", schema: "public", table: "pushes", filter: `recipient_id=eq.${userId}` },
-      (payload) => handler(payload)
+      (payload: any) => handler(payload)
     )
     .subscribe();
   return () => {
@@ -96,7 +96,7 @@ export function sbSubscribePrices(handler: (payload: any) => void) {
     .on(
       "postgres_changes",
       { event: "INSERT", schema: "public", table: "prices" },
-      (payload) => handler(payload)
+      (payload: any) => handler(payload)
     )
     .subscribe();
   return () => {
@@ -117,4 +117,3 @@ export function sbGetPublicUrl(path: string) {
 }
 
 export const usingSupabase = hasSupabase;
-

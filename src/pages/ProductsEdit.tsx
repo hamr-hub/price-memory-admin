@@ -10,11 +10,11 @@ const ProductsEdit: React.FC = () => {
         <Form.Item label="名称" name="name" rules={[{ required: true }]}> 
           <Input />
         </Form.Item>
-        <Form.Item label="标题" name="title"> 
+        <Form.Item label="链接" name="url"> 
           <Input />
         </Form.Item>
-        <Form.Item label="价格" name="price"> 
-          <InputNumber style={{ width: "100%" }} />
+        <Form.Item label="类别" name="category"> 
+          <Input />
         </Form.Item>
       </Form>
     </Edit>

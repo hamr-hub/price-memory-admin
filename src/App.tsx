@@ -11,19 +11,22 @@ import routerProvider, {
 } from "@refinedev/react-router";
 import { App as AntdApp } from "antd";
 import { BrowserRouter, Navigate, Route, Routes } from "react-router";
-import type { AccessControlProvider, AuthBindings } from "@refinedev/core";
-import simpleRest from "@refinedev/simple-rest";
+import type { AccessControlProvider } from "@refinedev/core";
+import { dataProvider } from "./dataProvider";
 import { ColorModeContextProvider } from "./contexts/color-mode";
 import ProductsPage from "./pages/Products";
 import ProductsCreate from "./pages/ProductsCreate";
 import ProductsEdit from "./pages/ProductsEdit";
 import ProductsShow from "./pages/ProductsShow";
+import PublicPoolPage from "./pages/PublicPool";
+import CollectionsListPage from "./pages/CollectionsList";
+import CollectionShowPage from "./pages/CollectionShow";
 import { Header } from "./components/header";
 import { API_BASE } from "./api";
-const restProvider = simpleRest(API_BASE);
+const restProvider = dataProvider;
 
-const authProvider: AuthBindings = {
-  login: async ({ email, password, providerName }) => {
+const authProvider: any = {
+  login: async () => {
     localStorage.setItem("token", "demo-token");
     localStorage.setItem(
       "user",
@@ -44,7 +47,7 @@ const authProvider: AuthBindings = {
     const raw = localStorage.getItem("user");
     return raw ? JSON.parse(raw) : null;
   },
-  onError: async (error) => ({ error }) as any,
+  onError: async (error: any) => ({ error }) as any,
 };
 
 const accessControlProvider: AccessControlProvider = {
@@ -71,6 +74,8 @@ function App() {
                 accessControlProvider={accessControlProvider}
                 resources={[
                   { name: "products", list: "/products", create: "/products/create", edit: "/products/edit/:id", show: "/products/show/:id" },
+                  { name: "public-pool", list: "/pool" },
+                  { name: "collections", list: "/collections", show: "/collections/show/:id" },
                 ]}
                 options={{
                   syncWithLocation: true,
@@ -85,6 +90,9 @@ function App() {
                     <Route path="/products/create" element={<ProductsCreate />} />
                     <Route path="/products/edit/:id" element={<ProductsEdit />} />
                     <Route path="/products/show/:id" element={<ProductsShow />} />
+                    <Route path="/pool" element={<PublicPoolPage />} />
+                    <Route path="/collections" element={<CollectionsListPage />} />
+                    <Route path="/collections/show/:id" element={<CollectionShowPage />} />
                   </Routes>
                 <RefineKbar />
                 <UnsavedChangesNotifier />
