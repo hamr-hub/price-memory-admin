@@ -1,0 +1,120 @@
+import { supabase, hasSupabase } from "./supabase";
+
+export async function sbListProducts() {
+  const { data, error } = await supabase.from("products").select("*").order("id", { ascending: false });
+  if (error) throw error;
+  return { items: data || [] };
+}
+
+export async function sbListUsers() {
+  const { data, error } = await supabase.from("users").select("id,username,display_name,created_at").order("id", { ascending: false });
+  if (error) throw error;
+  return { items: data || [] };
+}
+
+export async function sbEnsureUser(username: string, display_name?: string) {
+  const { data: exists, error: e1 } = await supabase.from("users").select("*").eq("username", username).limit(1).maybeSingle();
+  if (e1) throw e1;
+  if (exists) return exists;
+  const { data, error } = await supabase.from("users").insert([{ username, display_name, created_at: new Date().toISOString() }]).select("*").single();
+  if (error) throw error;
+  return data;
+}
+
+export async function sbListUserFollows(userId: number) {
+  const { data: links, error } = await supabase.from("user_follows").select("product_id").eq("user_id", userId);
+  if (error) throw error;
+  const ids = (links || []).map((x: any) => x.product_id);
+  if (!ids.length) return [];
+  const { data, error: e2 } = await supabase.from("products").select("*").in("id", ids).order("id", { ascending: false });
+  if (e2) throw e2;
+  return data || [];
+}
+
+export async function sbAddFollow(userId: number, productId: number) {
+  const { error } = await supabase.from("user_follows").insert([{ user_id: userId, product_id: productId, created_at: new Date().toISOString() }]);
+  if (error && !String(error.message).includes("duplicate key")) throw error;
+  return { user_id: userId, product_id: productId };
+}
+
+export async function sbRemoveFollow(userId: number, productId: number) {
+  const { error } = await supabase.from("user_follows").delete().eq("user_id", userId).eq("product_id", productId);
+  if (error) throw error;
+  return { user_id: userId, product_id: productId };
+}
+
+export async function sbListFollowers(productId: number) {
+  const { data: links, error } = await supabase.from("user_follows").select("user_id").eq("product_id", productId);
+  if (error) throw error;
+  const ids = (links || []).map((x: any) => x.user_id);
+  if (!ids.length) return [];
+  const { data, error: e2 } = await supabase.from("users").select("id,username,display_name").in("id", ids);
+  if (e2) throw e2;
+  return data || [];
+}
+
+export async function sbCreatePush(senderId: number, recipientId: number, productId: number, message?: string) {
+  const { data, error } = await supabase
+    .from("pushes")
+    .insert([{ sender_id: senderId, recipient_id: recipientId, product_id: productId, message, status: "pending", created_at: new Date().toISOString(), updated_at: new Date().toISOString() }])
+    .select("*")
+    .single();
+  if (error) throw error;
+  return data;
+}
+
+export async function sbListPushes(userId: number, box?: "inbox" | "outbox") {
+  const col = box === "outbox" ? "sender_id" : "recipient_id";
+  const { data, error } = await supabase.from("pushes").select("*").eq(col, userId).order("id", { ascending: false });
+  if (error) throw error;
+  return data || [];
+}
+
+export async function sbUpdatePushStatus(pushId: number, status: "accepted" | "rejected") {
+  const { data, error } = await supabase.from("pushes").update({ status, updated_at: new Date().toISOString() }).eq("id", pushId).select("*").single();
+  if (error) throw error;
+  return data;
+}
+
+export function sbSubscribePushes(userId: number, handler: (payload: any) => void) {
+  const channel = supabase
+    .channel("pushes:" + userId)
+    .on(
+      "postgres_changes",
+      { event: "INSERT", schema: "public", table: "pushes", filter: `recipient_id=eq.${userId}` },
+      (payload) => handler(payload)
+    )
+    .subscribe();
+  return () => {
+    supabase.removeChannel(channel);
+  };
+}
+
+export function sbSubscribePrices(handler: (payload: any) => void) {
+  const channel = supabase
+    .channel("prices")
+    .on(
+      "postgres_changes",
+      { event: "INSERT", schema: "public", table: "prices" },
+      (payload) => handler(payload)
+    )
+    .subscribe();
+  return () => {
+    supabase.removeChannel(channel);
+  };
+}
+
+export async function sbUploadImage(file: File, filename: string) {
+  const path = `${Date.now()}_${filename}`;
+  const { error } = await supabase.storage.from("images").upload(path, file, { upsert: true });
+  if (error) throw error;
+  return path;
+}
+
+export function sbGetPublicUrl(path: string) {
+  const { data } = supabase.storage.from("images").getPublicUrl(path);
+  return data.publicUrl;
+}
+
+export const usingSupabase = hasSupabase;
+
