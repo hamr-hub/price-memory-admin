@@ -4,7 +4,7 @@ import React from "react";
 import { useShow, useList, useCreate, useCustom } from "@refinedev/core";
 import { API_BASE } from "../api";
 import TrendChart from "../components/TrendChart";
-import { usingSupabase, sbUploadImage, sbGetPublicUrl, sbGetProductStats, sbGetProductPrices, sbGetTrendDailyOHLC, sbGetTrendHourlyOHLC } from "../supabaseApi";
+import { usingSupabase, sbUploadImage, sbGetPublicUrl, sbGetProductStats, sbGetProductPrices, sbGetTrendDailyOHLC, sbGetTrendHourlyOHLC, sbUpdateProductImageUrl } from "../supabaseApi";
 import { convertCurrency } from "../utils/currency";
 
 const ProductsShow: React.FC = () => {
@@ -178,6 +178,19 @@ const ProductsShow: React.FC = () => {
       message.error(e.message || "创建失败");
     }
   };
+  const onExecuteNext = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/spider/tasks/next/execute`, { method: "POST", headers: { "Content-Type": "application/json" } });
+      const j = await res.json();
+      if (j?.success) {
+        message.success(`已执行任务: ${j.data.id}`);
+      } else {
+        message.error(j?.error?.message || "执行失败");
+      }
+    } catch (e: any) {
+      message.error(e.message || "执行失败");
+    }
+  };
   return (
     <Show title="商品详情">
       <Descriptions bordered column={1} size="small">
@@ -196,6 +209,7 @@ const ProductsShow: React.FC = () => {
                   const path = await sbUploadImage(file, file.name);
                   const url = sbGetPublicUrl(path);
                   setImageUrl(url);
+                  try { await sbUpdateProductImageUrl(record.id, url); } catch {}
                   message.success("已上传图片");
                 } catch (err: any) {
                   message.error(err.message || "上传失败");
@@ -278,6 +292,7 @@ const ProductsShow: React.FC = () => {
           <span>优先级</span>
           <InputNumber value={taskPriority} min={0} onChange={(v) => setTaskPriority(Number(v || 0))} />
           <Button type="primary" onClick={onCreateTask} disabled={!record?.id}>创建任务</Button>
+          <Button onClick={onExecuteNext}>执行队列下一任务</Button>
         </Space>
       </Card>
       <Table

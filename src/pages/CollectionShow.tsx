@@ -3,10 +3,10 @@ import { Descriptions, Table, Button, Space, Modal, Form, Input, message, AutoCo
 import React from "react";
 import { API_BASE } from "../api";
 import { dataProvider } from "../dataProvider";
-import { usingSupabase, sbSearchUsers, sbCollectionShare, sbSearchPublicPool, sbCollectionAddProduct } from "../supabaseApi";
+import { usingSupabase, sbSearchUsers, sbCollectionShare, sbSearchPublicPool, sbCollectionAddProduct, sbSubscribeCollectionMembers, sbSubscribeCollectionProducts, sbCollectionExportCsv } from "../supabaseApi";
 import { downloadBlob } from "../utils/download";
 import { useCan } from "@refinedev/core";
-import { useShow, useCustom } from "@refinedev/core";
+import { useShow, useCustom, useSubscription } from "@refinedev/core";
 
 const CollectionShowPage: React.FC = () => {
   const show: any = useShow({ resource: "collections" });
@@ -72,7 +72,7 @@ const CollectionShowPage: React.FC = () => {
   };
 
   const [exportStart, setExportStart] = React.useState(false);
-  const exportQuery: any = useCustom({ url: data?.id ? `${API_BASE}/collections/${data.id}/export.xlsx` : "", method: "get", meta: { responseType: "blob" }, queryOptions: { enabled: !!data?.id && exportStart } });
+  const exportQuery: any = useCustom({ url: data?.id ? `${API_BASE}/collections/${data.id}/export.xlsx` : "", method: "get", meta: { responseType: "blob" }, queryOptions: { enabled: !!data?.id && exportStart && !usingSupabase } });
   React.useEffect(() => {
     const blob: Blob | undefined = exportQuery?.data?.data;
     if (blob) {
@@ -80,10 +80,30 @@ const CollectionShowPage: React.FC = () => {
       setExportStart(false);
     }
   }, [exportQuery?.data?.data]);
-  const onExport = () => {
+  const onExport = async () => {
     if (!data?.id) return;
-    setExportStart(true);
+    if (usingSupabase) {
+      try {
+        const csv = await sbCollectionExportCsv(Number(data.id));
+        const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+        downloadBlob(blob, `collection_${data.id}.csv`);
+      } catch (e: any) {
+        message.error(e.message || "导出失败");
+      }
+    } else {
+      setExportStart(true);
+    }
   };
+
+  React.useEffect(() => {
+    const colId = data?.id;
+    if (!usingSupabase || !colId) return;
+    const u1 = sbSubscribeCollectionMembers(colId, () => { show?.queryResult?.refetch?.(); });
+    const u2 = sbSubscribeCollectionProducts(colId, () => { show?.queryResult?.refetch?.(); });
+    return () => { u1(); u2(); };
+  }, [usingSupabase, data?.id]);
+
+  useSubscription({ channel: "collections", types: ["updated"], params: { resource: { name: "collections" } } as any, callback: () => { show?.queryResult?.refetch?.(); } });
 
   const searchUsers = async (q: string) => {
     if (!q) { setUserOptions([]); return; }
@@ -121,6 +141,8 @@ const CollectionShowPage: React.FC = () => {
       <Descriptions bordered column={1} size="small">
         <Descriptions.Item label="ID">{data.id}</Descriptions.Item>
         <Descriptions.Item label="名称">{data.name}</Descriptions.Item>
+        {data.description && <Descriptions.Item label="简介">{data.description}</Descriptions.Item>}
+        {data.visibility && <Descriptions.Item label="可见性">{data.visibility}</Descriptions.Item>}
       </Descriptions>
       <Space style={{ margin: "12px 0" }}>
         {canShare?.can && <Button type="primary" onClick={() => setShareOpen(true)}>分享成员</Button>}
@@ -133,6 +155,7 @@ const CollectionShowPage: React.FC = () => {
         title={() => "集合商品"}
         columns={[
           { title: "ID", dataIndex: "id" },
+          { title: "图片", dataIndex: "image_url", render: (v: string) => v ? <img src={v} style={{ height: 28 }} /> : null },
           { title: "名称", dataIndex: "name" },
           { title: "链接", dataIndex: "url" },
           { title: "类别", dataIndex: "category" },

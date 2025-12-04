@@ -30,14 +30,45 @@ export const dataProvider: DataProvider = {
       const total = data?.products?.total ?? items.length;
       return { data: items, total };
     }
+    if (resource === "alerts") {
+      const userId = params?.filters?.find((f: any) => f.field === "user_id")?.value;
+      const productId = params?.filters?.find((f: any) => f.field === "product_id")?.value;
+      const data: any = await gql(`query($user_id:Int,$product_id:Int){ alerts(user_id:$user_id,product_id:$product_id) }`, { user_id: userId, product_id: productId });
+      const items = data?.alerts || [];
+      const total = items.length;
+      return { data: items, total };
+    }
+    if (resource === "collections") {
+      const raw = localStorage.getItem("user");
+      const user = raw ? JSON.parse(raw) : null;
+      const page = pagination?.current ?? 1;
+      const size = pagination?.pageSize ?? 20;
+      const search = params?.filters?.find((f: any) => f.field === "search")?.value || "";
+      const data: any = await gql(`query($user_id:Int!,$page:Int,$size:Int,$search:String){ userCollections(user_id:$user_id,page:$page,size:$size,search:$search){ items total page size } }`, { user_id: user?.id, page, size, search });
+      const items = data?.userCollections?.items || [];
+      const total = data?.userCollections?.total ?? items.length;
+      return { data: items, total };
+    }
+    if (resource === "pushes") {
+      const userId = params?.filters?.find((f: any) => f.field === "user_id")?.value;
+      const box = params?.filters?.find((f: any) => f.field === "box")?.value;
+      if (!userId) throw new Error("user_id is required for pushes list");
+      const data: any = await gql(`query($user_id:Int!,$box:String){ userPushes(user_id:$user_id,box:$box) }`, { user_id: userId, box });
+      const items = data?.userPushes || [];
+      const total = items.length;
+      return { data: items, total };
+    }
     if (resource === "public-pool") {
       const page = pagination?.current ?? 1;
       const size = pagination?.pageSize ?? 20;
+      const sorter = Array.isArray(params?.sorters) && params.sorters[0] ? params.sorters[0] : undefined;
       const search = params?.filters?.find((f: any) => f.field === "search")?.value || "";
       const category = params?.filters?.find((f: any) => f.field === "category")?.value || "";
       const qs = new URLSearchParams({ page: String(page), size: String(size) });
       if (search) qs.set("search", String(search));
       if (category) qs.set("category", String(category));
+      if (sorter?.field) qs.set("sort_by", String(sorter.field));
+      if (sorter?.order) qs.set("order", String(sorter.order));
       const json: any = await http(`${API_BASE}/pools/public/products?${qs.toString()}`);
       const data = json.data?.items || [];
       const total = json.data?.total ?? data.length;
@@ -60,8 +91,16 @@ export const dataProvider: DataProvider = {
       const page = pagination?.current ?? 1;
       const size = pagination?.pageSize ?? 20;
       const search = params?.filters?.find((f: any) => f.field === "search")?.value || "";
+      const start_date = params?.filters?.find((f: any) => f.field === "start_date")?.value || "";
+      const end_date = params?.filters?.find((f: any) => f.field === "end_date")?.value || "";
+      const min_members = params?.filters?.find((f: any) => f.field === "min_members")?.value;
+      const max_members = params?.filters?.find((f: any) => f.field === "max_members")?.value;
       const qs = new URLSearchParams({ page: String(page), size: String(size) });
       if (search) qs.set("search", String(search));
+      if (start_date) qs.set("start_date", String(start_date));
+      if (end_date) qs.set("end_date", String(end_date));
+      if (min_members !== undefined) qs.set("min_members", String(min_members));
+      if (max_members !== undefined) qs.set("max_members", String(max_members));
       const json: any = await http(`${API_BASE}/users/${user?.id}/collections?${qs.toString()}`);
       const data = json.data?.items || [];
       const total = json.data?.total ?? data.length;
@@ -84,6 +123,10 @@ export const dataProvider: DataProvider = {
       const data: any = await gql(`query($id:Int!){ product(id:$id){ id name url category last_updated stats{ min_price max_price avg_price count } } }`, { id });
       return { data: data?.product as BaseRecord };
     }
+    if (resource === "collections") {
+      const data: any = await gql(`query($id:Int!){ collection(id:$id){ id name owner_user_id created_at products{ id name url category last_updated } members{ id username display_name role } } }`, { id });
+      return { data: data?.collection as BaseRecord };
+    }
     const json: any = await http(`${API_BASE}/${resource}/${id}`);
     return { data: json.data as BaseRecord };
   },
@@ -93,6 +136,10 @@ export const dataProvider: DataProvider = {
       const data: any = await gql(`mutation($input:ProductInput){ createProduct(input:$input){ id name url category last_updated } }`, { input: variables });
       return { data: data?.createProduct as BaseRecord };
     }
+    if (resource === "alerts") {
+      const data: any = await gql(`mutation($input:AlertInput){ createAlert(input:$input) }`, { input: variables });
+      return { data: data?.createAlert as BaseRecord };
+    }
     const json: any = await http(`${API_BASE}/${resource}`, { method: "POST", body: JSON.stringify(variables) });
     return { data: json.data as BaseRecord };
   },
@@ -101,6 +148,15 @@ export const dataProvider: DataProvider = {
     if (resource === "products") {
       const data: any = await gql(`mutation($id:Int!,$input:ProductUpdate){ updateProduct(id:$id,input:$input){ id name url category last_updated } }`, { id, input: variables });
       return { data: data?.updateProduct as BaseRecord };
+    }
+    if (resource === "alerts") {
+      if (variables && typeof variables.status === "string") {
+        const data: any = await gql(`mutation($id:Int!,$status:String!){ updateAlertStatus(id:$id,status:$status) }`, { id, status: variables.status });
+        return { data: data?.updateAlertStatus as BaseRecord };
+      }
+      const input = { threshold: variables?.threshold, channel: variables?.channel, cooldown_minutes: variables?.cooldown_minutes };
+      const data: any = await gql(`mutation($id:Int!,$input:AlertUpdate){ updateAlert(id:$id,input:$input) }`, { id, input });
+      return { data: data?.updateAlert as BaseRecord };
     }
     const res = await fetch(`${API_BASE}/${resource}/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(variables) });
     const text = await res.text();
@@ -113,6 +169,10 @@ export const dataProvider: DataProvider = {
     if (resource === "products") {
       const data: any = await gql(`mutation($id:Int!){ deleteProduct(id:$id){ id } }`, { id });
       return { data: data?.deleteProduct as BaseRecord };
+    }
+    if (resource === "alerts") {
+      const data: any = await gql(`mutation($id:Int!){ deleteAlert(id:$id){ id } }`, { id });
+      return { data: data?.deleteAlert as BaseRecord };
     }
     const res = await fetch(`${API_BASE}/${resource}/${id}`, { method: "DELETE" });
     const text = await res.text();

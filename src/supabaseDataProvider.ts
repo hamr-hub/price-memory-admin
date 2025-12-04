@@ -113,7 +113,7 @@ export const supabaseDataProvider: DataProvider = {
       return { data: (data || {}) as BaseRecord };
     }
     if (resource === "collections") {
-      const { data: col, error: e1 } = await supabase.from("collections").select("*").eq("id", id).limit(1).maybeSingle();
+      const { data: col, error: e1 } = await supabase.from("collections").select("id,name,description,visibility,created_at").eq("id", id).limit(1).maybeSingle();
       if (e1) throw e1;
       const { data: members, error: e2 } = await supabase
         .from("collection_members")
@@ -122,12 +122,14 @@ export const supabaseDataProvider: DataProvider = {
       if (e2) throw e2;
       const { data: prods, error: e3 } = await supabase
         .from("collection_products")
-        .select("product:products(id,name,url,category)")
+        .select("product:products(id,name,url,category,image_url)")
         .eq("collection_id", id);
       if (e3) throw e3;
       const data = {
         id: col?.id,
         name: col?.name,
+        description: col?.description,
+        visibility: col?.visibility,
         created_at: col?.created_at,
         products: (prods || []).map((x: any) => x.product).filter(Boolean),
         members: (members || []).map((m: any) => ({ id: m.user?.id, username: m.user?.username, display_name: m.user?.display_name, role: m.role })),

@@ -274,6 +274,36 @@ export async function sbEnsureAuthUser() {
   return data;
 }
 
+export function sbSubscribeCollectionMembers(collectionId: number, handler: (payload: any) => void) {
+  const channel = supabase
+    .channel("collection_members:" + collectionId)
+    .on("postgres_changes", { event: "INSERT", schema: "public", table: "collection_members", filter: `collection_id=eq.${collectionId}` }, (payload: any) => handler(payload))
+    .on("postgres_changes", { event: "DELETE", schema: "public", table: "collection_members", filter: `collection_id=eq.${collectionId}` }, (payload: any) => handler(payload))
+    .subscribe();
+  return () => supabase.removeChannel(channel);
+}
+
+export function sbSubscribeCollectionProducts(collectionId: number, handler: (payload: any) => void) {
+  const channel = supabase
+    .channel("collection_products:" + collectionId)
+    .on("postgres_changes", { event: "INSERT", schema: "public", table: "collection_products", filter: `collection_id=eq.${collectionId}` }, (payload: any) => handler(payload))
+    .on("postgres_changes", { event: "DELETE", schema: "public", table: "collection_products", filter: `collection_id=eq.${collectionId}` }, (payload: any) => handler(payload))
+    .subscribe();
+  return () => supabase.removeChannel(channel);
+}
+
+export async function sbCollectionExportCsv(collectionId: number) {
+  const { data, error } = await supabase.rpc("collection_export_csv", { p_collection_id: collectionId });
+  if (error) throw error;
+  return typeof data === "string" ? data : String(data ?? "");
+}
+
+export async function sbUpdateProductImageUrl(productId: number, url: string) {
+  const { data, error } = await supabase.from("products").update({ image_url: url, last_updated: new Date().toISOString() }).eq("id", productId).select("*").single();
+  if (error) throw error;
+  return data;
+}
+
 export async function sbGetCurrentUserRow() {
   const { data: userData } = await supabase.auth.getUser();
   const user = userData.user;

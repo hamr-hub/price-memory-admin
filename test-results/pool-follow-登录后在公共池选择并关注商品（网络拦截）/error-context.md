@@ -1,0 +1,51 @@
+# Page snapshot
+
+```yaml
+- generic [ref=e2]:
+  - generic [ref=e4]:
+    - generic [ref=e6]:
+      - generic [ref=e7]:
+        - img [ref=e8]
+        - img [ref=e10]
+        - img [ref=e12]
+      - generic [ref=e14]:
+        - img [ref=e15]
+        - img [ref=e17]
+        - img [ref=e19]
+    - link "⭐️ If you find Refine useful, you can contribute to its growth by giving it a star on GitHub ⭐️" [ref=e21] [cursor=pointer]:
+      - /url: https://s.refine.dev/github-support
+      - generic [ref=e22]:
+        - generic [ref=e23]: ⭐️
+        - generic [ref=e24]: If you find Refine useful, you can contribute to its growth by giving it a star on GitHub
+        - generic [ref=e25]: ⭐️
+  - generic [ref=e27]:
+    - complementary [ref=e28]:
+      - generic [ref=e29]:
+        - link "Refine Project" [ref=e31] [cursor=pointer]:
+          - /url: /
+          - generic [ref=e32]:
+            - img [ref=e35]
+            - heading "Refine Project" [level=1] [ref=e39]
+        - menu [ref=e40]:
+          - menuitem "logout Logout" [ref=e41] [cursor=pointer]:
+            - img "logout" [ref=e42]:
+              - img [ref=e43]
+            - generic [ref=e45]: Logout
+      - button "left" [ref=e47] [cursor=pointer]:
+        - img "left" [ref=e48]:
+          - img [ref=e49]
+    - generic [ref=e51]:
+      - banner [ref=e52]:
+        - generic [ref=e53]:
+          - switch "🌛 🔆" [ref=e55] [cursor=pointer]:
+            - generic [ref=e57]:
+              - generic: 🌛
+              - generic: 🔆
+          - generic [ref=e59]:
+            - strong [ref=e62]: E2E用户
+            - link "共享池" [ref=e65] [cursor=pointer]:
+              - /url: /pool
+            - link "推送中心" [ref=e68] [cursor=pointer]:
+              - /url: /pushes
+      - main [ref=e69]
+```

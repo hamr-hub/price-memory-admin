@@ -41,6 +41,29 @@ const CrawlTestPage: React.FC = () => {
     return () => { if (unsub) unsub(); if (sub) sub(); };
   }, []);
 
+  const recommendNodeId = React.useMemo(() => {
+    const score = (n: any) => {
+      const st = n.status === "online" ? 0 : n.status === "paused" ? 1 : 2;
+      const rg = String(n.region).toLowerCase() === "local" ? 0 : 1;
+      const lat = typeof n.latency_ms === "number" ? n.latency_ms : 999999;
+      const wt = typeof n.weight === "number" ? -n.weight : 0;
+      return [st, rg, lat, wt, n.id];
+    };
+    const sorted = nodes.slice().sort((a, b) => {
+      const sa = score(a); const sb = score(b);
+      for (let i = 0; i < sa.length; i++) { if (sa[i] !== sb[i]) return sa[i] - sb[i]; }
+      return 0;
+    });
+    return sorted[0]?.id;
+  }, [nodes]);
+
+  React.useEffect(() => {
+    const v = form.getFieldValue("mode");
+    if (!form.getFieldValue("nodeId") && v === "server" && recommendNodeId) {
+      form.setFieldsValue({ nodeId: recommendNodeId });
+    }
+  }, [recommendNodeId]);
+
   const startTest = async () => {
     if (!usingSupabase) return;
     const values = await form.getFieldsValue();

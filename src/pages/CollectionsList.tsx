@@ -1,6 +1,6 @@
 import { List } from "@refinedev/antd";
-import { Table, Button, Modal, Form, Input, message, Space } from "antd";
-import { useTable, useCreate, useNavigation, useGetIdentity } from "@refinedev/core";
+import { Table, Button, Modal, Form, Input, message, Space, DatePicker, InputNumber } from "antd";
+import { useTable, useCreate, useNavigation, useGetIdentity, useSubscription } from "@refinedev/core";
 import React from "react";
 
 const CollectionsListPage: React.FC = () => {
@@ -10,6 +10,9 @@ const CollectionsListPage: React.FC = () => {
   const { show } = useNavigation();
   const table: any = useTable({ resource: "collections", pagination: { pageSize: 20 } });
   const { tableProps, refetch, setFilters } = table;
+  const [range, setRange] = React.useState<[any, any] | null>(null);
+  const [minMembers, setMinMembers] = React.useState<number | undefined>();
+  const [maxMembers, setMaxMembers] = React.useState<number | undefined>();
 
   React.useEffect(() => { /* 数据通过 useTable 加载 */ }, []);
 
@@ -27,10 +30,18 @@ const CollectionsListPage: React.FC = () => {
     }
   };
 
+  useSubscription({ channel: "collections", types: ["created","updated","deleted"], params: { resource: { name: "collections" } } as any, callback: () => { refetch?.(); } });
+
   return (
     <List title="我的集合" headerButtons={
       <Space>
         <Input.Search placeholder="搜索集合名称" allowClear onSearch={(v) => setFilters?.([{ field: "search", operator: "contains", value: v }])} />
+        <DatePicker.RangePicker onChange={(v) => { setRange(v as any); const [s, e] = v || []; setFilters?.([
+          ...(s ? [{ field: "start_date", operator: "gte", value: s.format("YYYY-MM-DD") }] : []),
+          ...(e ? [{ field: "end_date", operator: "lte", value: e.format("YYYY-MM-DD") }] : []),
+        ]); }} />
+        <InputNumber placeholder="最少成员" min={0} value={minMembers} onChange={(v) => { setMinMembers(v as any); setFilters?.([{ field: "min_members", operator: "gte", value: v }]); }} />
+        <InputNumber placeholder="最多成员" min={0} value={maxMembers} onChange={(v) => { setMaxMembers(v as any); setFilters?.([{ field: "max_members", operator: "lte", value: v }]); }} />
         <Button type="primary" onClick={() => setOpen(true)}>新建集合</Button>
       </Space>
     }>

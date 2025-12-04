@@ -75,23 +75,7 @@ const ProductsPage: React.FC = () => {
     }
   };
 
-  const onExportXlsx = async () => {
-    if (!selectedRowKeys.length) return;
-    try {
-      const params = new URLSearchParams();
-      params.set("product_ids", (selectedRowKeys as any[]).join(","));
-      const r = exportRange;
-      if (r && r[0]) params.set("start_date", r[0].format("YYYY-MM-DD"));
-      if (r && r[1]) params.set("end_date", r[1].format("YYYY-MM-DD"));
-      const apiKey = getApiKey();
-      const res = await fetch(`${API_BASE}/export/xlsx?${params.toString()}`, { headers: { ...(apiKey ? { "X-API-Key": apiKey } : {}) } });
-      if (!res.ok) throw new Error(await res.text());
-      const blob = await res.blob();
-      downloadBlob(blob, "products_export.xlsx");
-    } catch (e: any) {
-      message.error(e.message || "导出失败");
-    }
-  };
+  
 
   const onExportXlsx = async () => {
     if (!selectedRowKeys.length) return;

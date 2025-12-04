@@ -36,3 +36,10 @@ test("update push status via API", async () => {
   const updated = await api.updatePushStatus(pushId, "accepted");
   expect(updated.status).toBe("accepted");
 });
+
+test("add product to public pool via API", async () => {
+  const p = await api.createProduct("池中商品", "http://example.com/pool", "类目");
+  const payload = { product_id: p.id };
+  const added = await http<any>(url(`/pools/public/products`), { method: "POST", body: JSON.stringify(payload) });
+  expect(added.success).toBe(true);
+});

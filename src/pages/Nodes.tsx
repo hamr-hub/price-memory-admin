@@ -80,8 +80,8 @@ const NodesPage: React.FC = () => {
             dataIndex: "actions",
             render: (_: any, record: any) => (
               <Space>
-                <Button size="small" onClick={() => send(record, "pause")}>暂停</Button>
-                <Button size="small" onClick={() => send(record, "resume")}>恢复</Button>
+                <Button size="small" disabled={record.status === "paused"} onClick={() => send(record, "pause")}>暂停</Button>
+                <Button size="small" disabled={record.status !== "paused"} onClick={() => send(record, "resume")}>恢复</Button>
                 <Button size="small" onClick={() => send(record, "ping")}>测延迟</Button>
               </Space>
             ),

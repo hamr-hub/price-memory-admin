@@ -36,9 +36,14 @@ const PublicPoolPage: React.FC = () => {
 
   React.useEffect(() => {
     if (!usingSupabase) {
-      const ds: any[] = (tableProps as any)?.dataSource || [];
-      const cats = Array.from(new Set((ds || []).map((x: any) => x.category).filter(Boolean)));
-      setCatOptions(cats.map((c) => ({ value: c, label: c })));
+      (async () => {
+        try {
+          const res = await fetch(`${API_BASE}/pools/public/categories`);
+          const json = await res.json();
+          const cats: string[] = json.data || [];
+          setCatOptions(cats.map((c) => ({ value: c, label: c })));
+        } catch {}
+      })();
     }
   }, [tableProps]);
 
