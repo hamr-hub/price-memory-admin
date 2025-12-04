@@ -1,5 +1,5 @@
 import { List } from "@refinedev/antd";
-import { Table, Button, message, Input, Space } from "antd";
+import { Table, Button, message, Input, Space, Select } from "antd";
 import { useTable, useGetIdentity, useCan } from "@refinedev/core";
 import React from "react";
 import { API_BASE } from "../api";
@@ -52,6 +52,18 @@ const PublicPoolPage: React.FC = () => {
     <List title="公共商品池" headerButtons={
       <Space>
         <Input.Search placeholder="搜索名称" allowClear onSearch={(v) => setFilters?.([{ field: "search", operator: "contains", value: v }])} />
+        {!usingSupabase && (
+          <Select
+            placeholder="类别"
+            allowClear
+            style={{ width: 160 }}
+            onChange={(v) => setFilters?.([{ field: "category", operator: "eq", value: v || "" }])}
+            options={[
+              { value: "电子产品", label: "电子产品" },
+              { value: "类目", label: "类目" },
+            ]}
+          />
+        )}
       </Space>
     }>
       {usingSupabase ? (

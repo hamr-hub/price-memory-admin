@@ -1,7 +1,7 @@
 import React from "react";
 import { List } from "@refinedev/antd";
 import { Form, Input, Select, Button, Space, Table, Tag, Typography, Card, InputNumber } from "antd";
-import { usingSupabase, sbListRuntimeNodes, sbSubscribeRuntimeNodes, sbCreateTestCrawl, sbSubscribeCrawlLogs, sbCreateTestSteps } from "../supabaseApi";
+import { usingSupabase, sbListRuntimeNodes, sbSubscribeRuntimeNodes, sbCreateTestCrawl, sbSubscribeCrawlLogs, sbCreateTestSteps, sbCreateCodegen } from "../supabaseApi";
 
 const { Paragraph } = Typography;
 
@@ -84,6 +84,23 @@ const CrawlTestPage: React.FC = () => {
     setSub(() => unsubscribe);
   };
 
+  const runCodegen = async () => {
+    if (!usingSupabase) return;
+    const values = await form.validateFields();
+    const nodeId = values.nodeId;
+    const url = values.url;
+    const target = values.codegen_target || "python";
+    const duration_sec = values.codegen_duration || 10;
+    const { jobId } = await sbCreateCodegen(nodeId, url, { target, duration_sec });
+    setJobId(jobId);
+    setLogs([]);
+    if (sub) { sub(); setSub(null); }
+    const unsubscribe = sbSubscribeCrawlLogs(jobId, (row: any) => {
+      setLogs((prev) => [...prev, row]);
+    });
+    setSub(() => unsubscribe);
+  };
+
   const resultLog = React.useMemo(() => logs.find((x) => x.level === "result"), [logs]);
   const parsedResult = React.useMemo(() => {
     try { return resultLog ? JSON.parse(String(resultLog.message || "{}")) : null; } catch { return null; }
@@ -134,6 +151,18 @@ const CrawlTestPage: React.FC = () => {
           </Form.Item>
           <Form.Item>
             <Button onClick={runSteps} disabled={!usingSupabase}>执行步骤</Button>
+          </Form.Item>
+          <Form.Item name="codegen_target" label="codegen 目标">
+            <Select style={{ width: 160 }}>
+              <Select.Option value="python">python</Select.Option>
+              <Select.Option value="javascript">javascript</Select.Option>
+            </Select>
+          </Form.Item>
+          <Form.Item name="codegen_duration" label="录制秒数">
+            <InputNumber style={{ width: 140 }} min={5} max={60} />
+          </Form.Item>
+          <Form.Item>
+            <Button onClick={runCodegen} disabled={!usingSupabase}>Codegen 录制</Button>
           </Form.Item>
         </Form>
       </Card>

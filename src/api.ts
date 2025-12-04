@@ -71,8 +71,8 @@ export const api = {
     const j: any = await http(`${API_BASE}/products`, { method: "POST", body: JSON.stringify({ name, url, category }) });
     return j.data;
   },
-  async createTask(productId: number) {
-    const j: any = await http(`${API_BASE}/spider/tasks`, { method: "POST", body: JSON.stringify({ product_id: productId }) });
+  async createTask(productId: number, priority?: number) {
+    const j: any = await http(`${API_BASE}/spider/tasks`, { method: "POST", body: JSON.stringify({ product_id: productId, priority }) });
     return j.data;
   },
   async executeTask(taskId: number) {

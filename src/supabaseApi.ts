@@ -208,6 +208,17 @@ export async function sbCreateTestSteps(nodeId: number, url: string, steps: any[
   return { command: cmd, jobId: payload.job_id };
 }
 
+export async function sbCreateCodegen(nodeId: number, url: string, opts?: { jobId?: string; target?: "python" | "javascript"; duration_sec?: number }) {
+  const payload = {
+    url,
+    job_id: opts?.jobId || `${Date.now()}_${Math.random().toString(36).slice(2)}`,
+    target: opts?.target || "python",
+    duration_sec: opts?.duration_sec || 10,
+  };
+  const cmd = await sbCreateNodeCommand(nodeId, "codegen", payload);
+  return { command: cmd, jobId: payload.job_id };
+}
+
 export async function sbUploadImage(file: File, filename: string) {
   const path = `${Date.now()}_${filename}`;
   const { error } = await supabase.storage.from("images").upload(path, file, { upsert: true });
@@ -223,7 +234,7 @@ export function sbGetPublicUrl(path: string) {
 export const usingSupabase = hasSupabase;
 
 export async function sbGetProductStats(productId: number) {
-  const { data, error } = await supabase.rpc("product_price_stats", { p_product_id: productId });
+  const { data, error } = await supabase.rpc("rpc_product_stats", { product_id: productId });
   if (error) throw error;
   const row = Array.isArray(data) ? data[0] : data;
   return { min_price: row?.min_price ?? null, max_price: row?.max_price ?? null, avg_price: row?.avg_price ?? null, count: row?.count ?? 0 };
@@ -265,4 +276,25 @@ export async function sbExportPrices(productIds: number[]) {
     .in("product_id", productIds);
   if (error) throw error;
   return data || [];
+}
+
+export async function sbGetProductPrices(productId: number, startDate?: string, endDate?: string) {
+  let q = supabase.from("prices").select("id,product_id,price,created_at").eq("product_id", productId).order("created_at", { ascending: false });
+  if (startDate) q = q.gte("created_at", startDate);
+  if (endDate) q = q.lte("created_at", `${endDate} 23:59:59`);
+  const { data, error } = await q;
+  if (error) throw error;
+  return data || [];
+}
+
+export async function sbGetTrendDailyOHLC(productId: number, startDate: string, endDate: string) {
+  const { data, error } = await supabase.rpc("rpc_product_daily_ohlc", { product_id: productId, start_date: startDate, end_date: endDate });
+  if (error) throw error;
+  return (data || []).map((r: any) => ({ date: r.day, open: r.open, close: r.close, low: r.low, high: r.high, avg: r.avg, count: r.count }));
+}
+
+export async function sbGetTrendHourlyOHLC(productId: number, startTs: string, endTs: string) {
+  const { data, error } = await supabase.rpc("rpc_product_hourly_ohlc", { product_id: productId, start_ts: startTs, end_ts: endTs });
+  if (error) throw error;
+  return (data || []).map((r: any) => ({ date: r.hour, open: r.open, close: r.close, low: r.low, high: r.high, avg: r.avg, count: r.count }));
 }
