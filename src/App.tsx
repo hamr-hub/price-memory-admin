@@ -29,6 +29,7 @@ import { Header } from "./components/header";
 import PushesPage from "./pages/Pushes";
 import NodesPage from "./pages/Nodes";
 import CrawlTestPage from "./pages/CrawlTest";
+import SettingsSitesRatesPage from "./pages/SettingsSitesRates";
 import { API_BASE, api } from "./api";
 const restProvider = dataProvider;
 
@@ -60,34 +61,28 @@ const localAuthProvider: any = {
   onError: async (error: any) => ({ error }) as any,
 };
 
+let permsCache: Record<string, boolean> | null = null;
+async function fetchPermissions(): Promise<Record<string, boolean>> {
+  if (permsCache) return permsCache;
+  try {
+    const res = await fetch(`${API_BASE}/auth/permissions`);
+    const j = await res.json();
+    const list: Array<{ resource: string; action: string }> = j?.data || j || [];
+    const map: Record<string, boolean> = {};
+    for (const p of list) { map[`${p.resource}:${p.action}`] = true; }
+    permsCache = map;
+    return map;
+  } catch {
+    permsCache = {};
+    return {};
+  }
+}
 const accessControlProvider: AccessControlProvider = {
   can: async ({ resource, action, params }: any) => {
-    const role = localStorage.getItem("role") || "guest";
-    let can = true;
-    if (resource === "products" && (action === "export" || action === "delete" || action === "edit")) {
-      can = role === "admin";
-    }
-    if (resource === "collections" && (action === "share" || action === "export")) {
-      if (role === "admin") {
-        can = true;
-      } else {
-        const raw = localStorage.getItem("user");
-        const userId = raw ? (JSON.parse(raw) || {}).id : undefined;
-        const id = params?.id;
-        if (!id || !userId) {
-          can = false;
-        } else {
-          try {
-            const res = await fetch(`${API_BASE}/collections/${id}`);
-            const j = await res.json();
-            can = j?.data?.owner_user_id === userId;
-          } catch {
-            can = false;
-          }
-        }
-      }
-    }
-    if (resource === "public-pool" && action === "select") {
+    const perms = await fetchPermissions();
+    const key = `${resource}:${action}`;
+    let can = !!perms[key];
+    if (!can && resource === "public-pool" && action === "select") {
       can = !!localStorage.getItem("token");
     }
     return { can, reason: can ? undefined : "无权限" };
@@ -116,6 +111,7 @@ function App() {
                   { name: "pushes", list: "/pushes" },
                   { name: "nodes", list: "/nodes" },
                   { name: "crawl-test", list: "/crawl-test" },
+                  { name: "settings-sites-rates", list: "/settings/sites-rates", meta: { label: "站点与币种" } },
                 ]}
                 options={{
                   syncWithLocation: true,
@@ -143,6 +139,7 @@ function App() {
                     <Route path="/pushes" element={<PushesPage />} />
                     <Route path="/nodes" element={<NodesPage />} />
                     <Route path="/crawl-test" element={<CrawlTestPage />} />
+                    <Route path="/settings/sites-rates" element={<SettingsSitesRatesPage />} />
                   </Route>
                 </Routes>
                 <RefineKbar />

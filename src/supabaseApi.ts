@@ -241,3 +241,28 @@ export async function sbEnsureAuthUser() {
   if (error) throw error;
   return data;
 }
+
+export async function sbGetCurrentUserRow() {
+  const { data: userData } = await supabase.auth.getUser();
+  const user = userData.user;
+  if (!user) return null;
+  const { data } = await supabase.from("users").select("id,username,display_name,auth_uid").eq("auth_uid", user.id).limit(1).maybeSingle();
+  return data || null;
+}
+
+export async function sbSearchPublicPool(search?: string) {
+  let q = supabase.from("products").select("*").order("id", { ascending: false });
+  if (search && search.trim()) q = q.ilike("name", `%${search.trim()}%`);
+  const { data, error } = await q;
+  if (error) throw error;
+  return data || [];
+}
+
+export async function sbExportPrices(productIds: number[]) {
+  const { data, error } = await supabase
+    .from("v_product_prices_export")
+    .select("product_id, product_name, url, category, price_id, price, created_at")
+    .in("product_id", productIds);
+  if (error) throw error;
+  return data || [];
+}

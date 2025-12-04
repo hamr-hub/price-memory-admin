@@ -18,10 +18,21 @@ export const dataProvider: DataProvider = {
       const q: string[] = [];
       if (Array.isArray(filters)) {
         for (const f of filters) {
-          if (!f?.value) continue;
-          const val = encodeURIComponent(String(f.value));
-          const key = f.operator === "contains" ? `${f.field}_like` : f.field;
-          q.push(`${key}=${val}`);
+          if (f?.value === undefined || f?.value === null || f?.value === "") continue;
+          const field: string = String(f.field);
+          const op: string = String(f.operator || "eq");
+          const val = encodeURIComponent(
+            typeof f.value === "string" ? f.value : typeof f.value === "number" ? String(f.value) : (f.value?.toISOString?.() || String(f.value))
+          );
+          if (op === "contains") {
+            q.push(`${field}_like=${val}`);
+            continue;
+          }
+          if (field === "updated_from" || field === "updated_to" || field === "price_min" || field === "price_max") {
+            q.push(`${field}=${val}`);
+            continue;
+          }
+          q.push(`${field}=${val}`);
         }
       }
       const query = [`page=${page}`, `size=${size}`, ...q].join("&");
