@@ -8,8 +8,8 @@ import { useCan } from "@refinedev/core";
 import { useShow, useCustom } from "@refinedev/core";
 
 const CollectionShowPage: React.FC = () => {
-  const { queryResult } = useShow({ resource: "collections" });
-  const data = (queryResult as any)?.data?.data || {};
+  const show: any = useShow({ resource: "collections" });
+  const data = show?.queryResult?.data?.data || {};
   const [shareOpen, setShareOpen] = React.useState(false);
   const [addOpen, setAddOpen] = React.useState(false);
   const [shareForm] = Form.useForm();
@@ -21,14 +21,14 @@ const CollectionShowPage: React.FC = () => {
   const onShare = async () => {
     const values = await shareForm.validateFields();
     try {
-      const res: any = await dataProvider.custom({ resource: "collections", method: "post", meta: { path: `/${data.id}/share` }, payload: { user_id: Number(values.user_id), role: values.role || "editor" } });
+      const res: any = await (dataProvider as any).custom({ resource: "collections", method: "post", meta: { path: `/${data.id}/share` }, payload: { user_id: Number(values.user_id), role: values.role || "editor" } });
       if (res?.data) {
       message.success("分享成功");
       setShareOpen(false);
       shareForm.resetFields();
-      (queryResult as any)?.refetch?.();
+      show?.queryResult?.refetch?.();
       } else {
-        message.error(json.error?.message || "操作失败");
+        message.error("操作失败");
       }
     } catch (e: any) {
       message.error(e.message || "操作失败");
@@ -38,14 +38,14 @@ const CollectionShowPage: React.FC = () => {
   const onAddProduct = async () => {
     const values = await addForm.validateFields();
     try {
-      const res: any = await dataProvider.custom({ resource: "collections", method: "post", meta: { path: `/${data.id}/products` }, payload: { product_id: Number(values.product_id) } });
+      const res: any = await (dataProvider as any).custom({ resource: "collections", method: "post", meta: { path: `/${data.id}/products` }, payload: { product_id: Number(values.product_id) } });
       if (res?.data) {
       message.success("已添加商品");
       setAddOpen(false);
       addForm.resetFields();
-      (queryResult as any)?.refetch?.();
+      show?.queryResult?.refetch?.();
       } else {
-        message.error(json.error?.message || "操作失败");
+        message.error("操作失败");
       }
     } catch (e: any) {
       message.error(e.message || "操作失败");

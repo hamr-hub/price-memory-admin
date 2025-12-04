@@ -14,6 +14,8 @@ import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { ThemedLayout } from "@refinedev/antd";
 import type { AccessControlProvider } from "@refinedev/core";
 import { dataProvider } from "./dataProvider";
+import supabaseAuthProvider from "./supabaseAuth";
+import { hasSupabase } from "./supabase";
 import { ColorModeContextProvider } from "./contexts/color-mode";
 import ProductsPage from "./pages/Products";
 import ProductsCreate from "./pages/ProductsCreate";
@@ -29,8 +31,8 @@ import CrawlTestPage from "./pages/CrawlTest";
 import { API_BASE } from "./api";
 const restProvider = dataProvider;
 
-const authProvider: any = {
-  login: async ({ email, password }: any) => {
+const localAuthProvider: any = {
+  login: async ({ email }: any) => {
     const role = email === "admin" || email === "admin@example.com" ? "admin" : "guest";
     localStorage.setItem("token", "demo-token");
     localStorage.setItem("role", role);
@@ -102,7 +104,7 @@ function App() {
                 notificationProvider={useNotificationProvider}
                 routerProvider={routerProvider}
                 dataProvider={restProvider}
-                authProvider={authProvider}
+                authProvider={hasSupabase ? supabaseAuthProvider : localAuthProvider}
                 accessControlProvider={accessControlProvider}
                 resources={[
                   { name: "products", list: "/products", create: "/products/create", edit: "/products/edit/:id", show: "/products/show/:id" },
@@ -122,7 +124,7 @@ function App() {
                   <Route path="/login" element={<AuthPage type="login" />} />
                   <Route
                     element={
-                      <Authenticated fallback={<Navigate to="/login" replace />}> 
+                      <Authenticated key="auth" fallback={<Navigate to="/login" replace />}> 
                         <ThemedLayout Header={Header} />
                       </Authenticated>
                     }

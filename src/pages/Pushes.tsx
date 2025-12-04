@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { List, Button, Space, Segmented, message, Typography, Tag } from "antd";
-import { usingSupabase, sbListUsers, sbEnsureUser, sbListPushes, sbUpdatePushStatus, sbAddFollow } from "../supabaseApi";
+import { usingSupabase, sbListUsers, sbEnsureUser, sbListPushes, sbUpdatePushStatus, sbAddFollow, sbSubscribePushesUpdate, sbSubscribeFollowsInsert } from "../supabaseApi";
 import { api } from "../api";
 
 type User = { id: number; username: string; display_name?: string | null };
@@ -73,6 +73,20 @@ export default function PushesPage() {
     };
     load();
   }, [currentUser?.id, box]);
+
+  useEffect(() => {
+    if (!usingSupabase || !currentUser?.id) return;
+    const unsub1 = sbSubscribePushesUpdate(currentUser.id, () => {
+      message.info("推送状态已更新");
+    });
+    const unsub2 = sbSubscribeFollowsInsert(currentUser.id, () => {
+      message.info("关注池新增一条记录");
+    });
+    return () => {
+      unsub1();
+      unsub2();
+    };
+  }, [usingSupabase, currentUser?.id]);
 
   const accept = async (p: Push) => {
     try {
@@ -149,4 +163,3 @@ export default function PushesPage() {
     </div>
   );
 }
-

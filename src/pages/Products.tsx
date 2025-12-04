@@ -1,8 +1,8 @@
 import { List, useTable, CreateButton, ShowButton, EditButton, DeleteButton } from "@refinedev/antd";
-import { Table, Space, Button } from "antd";
+import { Table, Space, Button, message } from "antd";
 import { useCan, useCustom } from "@refinedev/core";
 import React from "react";
-import { API_BASE } from "../api";
+import { API_BASE, getApiKey } from "../api";
 import { downloadBlob } from "../utils/download";
 
 const ProductsPage: React.FC = () => {
@@ -21,6 +21,20 @@ const ProductsPage: React.FC = () => {
   const onExport = () => {
     if (!selectedRowKeys.length) return;
     setExportIds(selectedRowKeys.join(","));
+  };
+
+  const exportSingle = async (id: number) => {
+    try {
+      const apiKey = getApiKey();
+      const res = await fetch(`${API_BASE}/products/${id}/export`, { headers: { ...(apiKey ? { "X-API-Key": apiKey } : {}) } });
+      if (!res.ok) throw new Error(await res.text());
+      const blob = await res.blob();
+      const dispo = res.headers.get("content-disposition") || "product_prices.csv";
+      const filename = dispo.includes("filename=") ? dispo.split("filename=")[1].replace(/"/g, "") : `product_${id}_prices.csv`;
+      downloadBlob(blob, filename);
+    } catch (e: any) {
+      message.error(e.message || "导出失败");
+    }
   };
 
   return (
@@ -43,6 +57,7 @@ const ProductsPage: React.FC = () => {
                 <ShowButton size="small" recordItemId={record.id} />
                 <EditButton size="small" recordItemId={record.id} />
                 <DeleteButton size="small" recordItemId={record.id} resource="products" />
+                <Button size="small" onClick={() => exportSingle(record.id)}>导出CSV</Button>
               </Space>
             ),
           },

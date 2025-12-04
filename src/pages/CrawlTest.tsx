@@ -58,6 +58,12 @@ const CrawlTestPage: React.FC = () => {
   const parsedResult = React.useMemo(() => {
     try { return resultLog ? JSON.parse(String(resultLog.message || "{}")) : null; } catch { return null; }
   }, [resultLog]);
+  const artifacts = React.useMemo(() => {
+    const items = logs.filter((x) => x.level === "artifact");
+    return items.map((x) => {
+      try { const j = JSON.parse(String(x.message || "{}")); return { ...j, created_at: x.created_at }; } catch { return { type: "unknown", url: String(x.message || ""), created_at: x.created_at }; }
+    });
+  }, [logs]);
 
   return (
     <List title="爬虫测试">
@@ -105,6 +111,29 @@ const CrawlTestPage: React.FC = () => {
             <Tag>来源</Tag>
             <span>{parsedResult.url}</span>
           </Space>
+        </Card>
+      )}
+
+      {!!artifacts.length && (
+        <Card title="回放工件" style={{ marginTop: 16 }}>
+          <Table
+            rowKey={(r) => r.created_at + r.type}
+            dataSource={artifacts}
+            pagination={false}
+            size="small"
+            columns={[
+              { title: "时间", dataIndex: "created_at" },
+              { title: "类型", dataIndex: "type", render: (v: string) => <Tag>{v}</Tag> },
+              { title: "链接", dataIndex: "url", render: (u: string, r: any) => (
+                <Space>
+                  <a href={u} target="_blank" rel="noreferrer">下载</a>
+                  {r.type === "trace" && (
+                    <a href={`https://trace.playwright.dev/?trace=${encodeURIComponent(u)}`} target="_blank" rel="noreferrer">在线回放</a>
+                  )}
+                </Space>
+              )},
+            ]}
+          />
         </Card>
       )}
     </List>

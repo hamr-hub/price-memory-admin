@@ -1,14 +1,17 @@
 import type { DataProvider, BaseRecord } from "@refinedev/core";
-import { API_BASE } from "./api";
+import { API_BASE, getApiKey } from "./api";
 
 async function http<T>(url: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(url, { headers: { "Content-Type": "application/json" }, ...init });
+  const apiKey = getApiKey();
+  const headers = { "Content-Type": "application/json", ...(apiKey ? { "X-API-Key": apiKey } : {}) } as Record<string, string>;
+  const res = await fetch(url, { headers, ...init });
   if (!res.ok) throw new Error(await res.text());
   return res.json() as Promise<T>;
 }
 
 export const dataProvider: DataProvider = {
-  getList: async ({ resource, pagination }) => {
+  getList: async (params: any) => {
+    const { resource, pagination } = params;
     if (resource === "products") {
       const page = pagination?.current ?? 1;
       const size = pagination?.pageSize ?? 20;
@@ -20,7 +23,12 @@ export const dataProvider: DataProvider = {
     if (resource === "public-pool") {
       const page = pagination?.current ?? 1;
       const size = pagination?.pageSize ?? 20;
-      const json: any = await http(`${API_BASE}/pools/public/products?page=${page}&size=${size}`);
+      const search = params?.filters?.find((f: any) => f.field === "search")?.value || "";
+      const category = params?.filters?.find((f: any) => f.field === "category")?.value || "";
+      const qs = new URLSearchParams({ page: String(page), size: String(size) });
+      if (search) qs.set("search", String(search));
+      if (category) qs.set("category", String(category));
+      const json: any = await http(`${API_BASE}/pools/public/products?${qs.toString()}`);
       const data = json.data?.items || [];
       const total = json.data?.total ?? data.length;
       return { data, total };
@@ -46,29 +54,34 @@ export const dataProvider: DataProvider = {
     }
     throw new Error(`Resource not supported: ${resource}`);
   },
-  getOne: async ({ resource, id }) => {
+  getOne: async (params: any) => {
+    const { resource, id } = params;
     const json: any = await http(`${API_BASE}/${resource}/${id}`);
     return { data: json.data as BaseRecord };
   },
-  create: async ({ resource, variables }) => {
+  create: async (params: any) => {
+    const { resource, variables } = params;
     const json: any = await http(`${API_BASE}/${resource}`, { method: "POST", body: JSON.stringify(variables) });
     return { data: json.data as BaseRecord };
   },
-  update: async ({ resource, id, variables }) => {
+  update: async (params: any) => {
+    const { resource, id, variables } = params;
     const res = await fetch(`${API_BASE}/${resource}/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(variables) });
     const text = await res.text();
     if (!res.ok) throw new Error(text || "UPDATE_FAILED");
     const json = text ? JSON.parse(text) : {};
     return { data: (json.data ?? {}) as BaseRecord };
   },
-  deleteOne: async ({ resource, id }) => {
+  deleteOne: async (params: any) => {
+    const { resource, id } = params;
     const res = await fetch(`${API_BASE}/${resource}/${id}`, { method: "DELETE" });
     const text = await res.text();
     if (!res.ok) throw new Error(text || "DELETE_FAILED");
     const json = text ? JSON.parse(text) : {};
     return { data: (json.data ?? { id }) as BaseRecord };
   },
-  getMany: async ({ resource, ids }) => {
+  getMany: async (params: any) => {
+    const { resource, ids } = params;
     const results: BaseRecord[] = [];
     for (const id of ids) {
       try {
@@ -82,9 +95,10 @@ export const dataProvider: DataProvider = {
   custom: async ({ url, method, headers, meta, payload, query, resource }: any) => {
     const fullUrl = url || `${API_BASE}/${resource}${meta?.path || ""}`;
     const q = query ? `?${new URLSearchParams(query as any).toString()}` : "";
+    const apiKey = getApiKey();
     const res = await fetch(`${fullUrl}${q}`, {
       method: method || "GET",
-      headers: { "Content-Type": meta?.responseType === "blob" ? undefined : "application/json", ...(headers || {}) },
+      headers: { "Content-Type": meta?.responseType === "blob" ? undefined : "application/json", ...(headers || {}), ...(apiKey ? { "X-API-Key": apiKey } : {}) },
       body: payload ? JSON.stringify(payload) : undefined,
     });
     if (!res.ok) throw new Error(await res.text());

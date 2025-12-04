@@ -90,6 +90,39 @@ export function sbSubscribePushes(userId: number, handler: (payload: any) => voi
   };
 }
 
+export function sbSubscribePushesUpdate(userId: number, handler: (payload: any) => void) {
+  const channel = supabase
+    .channel("pushes:update:" + userId)
+    .on(
+      "postgres_changes",
+      { event: "UPDATE", schema: "public", table: "pushes", filter: `recipient_id=eq.${userId}` },
+      (payload: any) => handler(payload)
+    )
+    .on(
+      "postgres_changes",
+      { event: "UPDATE", schema: "public", table: "pushes", filter: `sender_id=eq.${userId}` },
+      (payload: any) => handler(payload)
+    )
+    .subscribe();
+  return () => {
+    supabase.removeChannel(channel);
+  };
+}
+
+export function sbSubscribeFollowsInsert(userId: number, handler: (payload: any) => void) {
+  const channel = supabase
+    .channel("follows:insert:" + userId)
+    .on(
+      "postgres_changes",
+      { event: "INSERT", schema: "public", table: "user_follows", filter: `user_id=eq.${userId}` },
+      (payload: any) => handler(payload)
+    )
+    .subscribe();
+  return () => {
+    supabase.removeChannel(channel);
+  };
+}
+
 export function sbSubscribePrices(handler: (payload: any) => void) {
   const channel = supabase
     .channel("prices")

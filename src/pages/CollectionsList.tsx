@@ -8,7 +8,8 @@ const CollectionsListPage: React.FC = () => {
   const [form] = Form.useForm();
   const { data: identity } = useGetIdentity<any>();
   const { show } = useNavigation();
-  const { tableProps, refetch } = useTable({ resource: "collections", pagination: { pageSize: 20 } });
+  const table: any = useTable({ resource: "collections", pagination: { pageSize: 20 } });
+  const { tableProps, refetch } = table;
 
   React.useEffect(() => { /* 数据通过 useTable 加载 */ }, []);
 

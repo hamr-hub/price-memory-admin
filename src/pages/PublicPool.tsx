@@ -6,7 +6,8 @@ import { API_BASE } from "../api";
 import { dataProvider } from "../dataProvider";
 
 const PublicPoolPage: React.FC = () => {
-  const { tableProps } = useTable({ resource: "public-pool", pagination: { pageSize: 20 } });
+  const table: any = useTable({ resource: "public-pool", pagination: { pageSize: 20 } });
+  const { tableProps } = table;
   const { data: identity } = useGetIdentity<any>();
   const { data: canSelect } = useCan({ resource: "public-pool", action: "select" });
 
@@ -14,7 +15,7 @@ const PublicPoolPage: React.FC = () => {
     const userId = identity?.id;
     if (!userId) return message.error("未登录");
     try {
-      const res: any = await dataProvider.custom({ resource: "users", method: "post", meta: { path: `/${userId}/select_from_pool` }, payload: { product_id: record.id } });
+      const res: any = await (dataProvider as any).custom({ resource: "users", method: "post", meta: { path: `/${userId}/select_from_pool` }, payload: { product_id: record.id } });
       if (res?.data) message.success("已选择并关注"); else message.error("操作失败");
     } catch (e: any) { message.error(e.message || "操作失败"); }
   };

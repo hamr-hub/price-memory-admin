@@ -1,7 +1,13 @@
 export const API_BASE = (import.meta as any).env?.VITE_API_URL || "http://127.0.0.1:8000/api/v1";
 
+export function getApiKey(): string | undefined {
+  try { return localStorage.getItem("API_KEY") || undefined; } catch { return undefined; }
+}
+
 async function http<T>(url: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(url, { headers: { "Content-Type": "application/json" }, ...init });
+  const apiKey = getApiKey();
+  const headers = { "Content-Type": "application/json", ...(apiKey ? { "X-API-Key": apiKey } : {}) } as Record<string, string>;
+  const res = await fetch(url, { headers, ...init });
   const text = await res.text();
   if (!res.ok) throw new Error(text || res.statusText);
   try { return JSON.parse(text) as T; } catch { return (text as any) as T; }
@@ -14,6 +20,10 @@ export const api = {
   },
   async createUser(username: string, display_name?: string) {
     const j: any = await http(`${API_BASE}/users`, { method: "POST", body: JSON.stringify({ username, display_name }) });
+    try {
+      const key = j?.data?.api_key;
+      if (key) localStorage.setItem("API_KEY", key);
+    } catch {}
     return j.data;
   },
   async listPushes(userId: number, box?: "inbox" | "outbox") {
@@ -37,12 +47,36 @@ export const api = {
     const j: any = await http(`${API_BASE}/alerts`, { method: "POST", body: JSON.stringify({ user_id: userId, product_id: productId, rule_type: ruleType, threshold }) });
     return j.data;
   },
+  async listAlertEvents(alertId: number) {
+    const j: any = await http(`${API_BASE}/alerts/${alertId}/events`);
+    return j.data || [];
+  },
+  async updateAlert(alertId: number, payload: { threshold?: number; channel?: string; cooldown_minutes?: number }) {
+    const params = new URLSearchParams();
+    if (payload.threshold !== undefined) params.set("threshold", String(payload.threshold));
+    if (payload.channel !== undefined) params.set("channel", String(payload.channel));
+    if (payload.cooldown_minutes !== undefined) params.set("cooldown_minutes", String(payload.cooldown_minutes));
+    const j: any = await http(`${API_BASE}/alerts/${alertId}/update${params.toString() ? `?${params.toString()}` : ""}`, { method: "POST" });
+    return j.data;
+  },
   async updateAlertStatus(alertId: number, status: "active" | "paused") {
     const j: any = await http(`${API_BASE}/alerts/${alertId}/status`, { method: "POST", body: JSON.stringify({ status }) });
     return j.data;
   },
   async deleteAlert(alertId: number) {
     const j: any = await http(`${API_BASE}/alerts/${alertId}`, { method: "DELETE" });
+    return j.data;
+  },
+  async createProduct(name: string, url: string, category?: string) {
+    const j: any = await http(`${API_BASE}/products`, { method: "POST", body: JSON.stringify({ name, url, category }) });
+    return j.data;
+  },
+  async createTask(productId: number) {
+    const j: any = await http(`${API_BASE}/spider/tasks`, { method: "POST", body: JSON.stringify({ product_id: productId }) });
+    return j.data;
+  },
+  async executeTask(taskId: number) {
+    const j: any = await http(`${API_BASE}/spider/tasks/${taskId}/execute`, { method: "POST" });
     return j.data;
   },
 };
