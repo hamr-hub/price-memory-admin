@@ -30,8 +30,16 @@ export const dataProvider: DataProvider = {
     const json: any = await http(`${API_BASE}/${resource}`, { method: "POST", body: JSON.stringify(variables) });
     return { data: json.data } as any;
   },
-  update: async () => { throw new Error("update not implemented") },
-  deleteOne: async () => { throw new Error("delete not implemented") },
+  update: async (params: any) => {
+    const { resource, id, variables } = params;
+    const json: any = await http(`${API_BASE}/${resource}/${id}`, { method: "PUT", body: JSON.stringify(variables) });
+    return { data: json.data } as any;
+  },
+  deleteOne: async (params: any) => {
+    const { resource, id } = params;
+    const json: any = await http(`${API_BASE}/${resource}/${id}`, { method: "DELETE" });
+    return { data: json.data } as any;
+  },
   getMany: async () => ({ data: [] } as any),
   getApiUrl: () => API_BASE,
 } as any;

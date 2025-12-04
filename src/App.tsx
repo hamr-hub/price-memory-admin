@@ -10,7 +10,8 @@ import routerProvider, {
   UnsavedChangesNotifier,
 } from "@refinedev/react-router";
 import { App as AntdApp } from "antd";
-import { BrowserRouter, Navigate, Route, Routes } from "react-router";
+import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
+import { ThemedLayout } from "@refinedev/antd";
 import type { AccessControlProvider } from "@refinedev/core";
 import { dataProvider } from "./dataProvider";
 import { ColorModeContextProvider } from "./contexts/color-mode";
@@ -22,6 +23,7 @@ import PublicPoolPage from "./pages/PublicPool";
 import CollectionsListPage from "./pages/CollectionsList";
 import CollectionShowPage from "./pages/CollectionShow";
 import { Header } from "./components/header";
+import PushesPage from "./pages/Pushes";
 import { API_BASE } from "./api";
 const restProvider = dataProvider;
 
@@ -76,6 +78,7 @@ function App() {
                   { name: "products", list: "/products", create: "/products/create", edit: "/products/edit/:id", show: "/products/show/:id" },
                   { name: "public-pool", list: "/pool" },
                   { name: "collections", list: "/collections", show: "/collections/show/:id" },
+                  { name: "pushes", list: "/pushes" },
                 ]}
                 options={{
                   syncWithLocation: true,
@@ -83,7 +86,7 @@ function App() {
                   projectId: "68Tn3q-k8Oh2h-ZA1WwU",
                 }}
               >
-                <Header />
+                <ThemedLayout Header={Header}>
                   <Routes>
                     <Route index element={<Navigate to="/products" replace />} />
                     <Route path="/products" element={<ProductsPage />} />
@@ -93,7 +96,9 @@ function App() {
                     <Route path="/pool" element={<PublicPoolPage />} />
                     <Route path="/collections" element={<CollectionsListPage />} />
                     <Route path="/collections/show/:id" element={<CollectionShowPage />} />
+                    <Route path="/pushes" element={<PushesPage />} />
                   </Routes>
+                </ThemedLayout>
                 <RefineKbar />
                 <UnsavedChangesNotifier />
                 <DocumentTitleHandler />
