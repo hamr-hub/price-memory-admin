@@ -1,7 +1,7 @@
 import React from "react";
 import { List } from "@refinedev/antd";
-import { Form, Input, Select, Button, Space, Table, Tag, Typography, Card } from "antd";
-import { usingSupabase, sbListRuntimeNodes, sbSubscribeRuntimeNodes, sbCreateTestCrawl, sbSubscribeCrawlLogs } from "../supabaseApi";
+import { Form, Input, Select, Button, Space, Table, Tag, Typography, Card, InputNumber } from "antd";
+import { usingSupabase, sbListRuntimeNodes, sbSubscribeRuntimeNodes, sbCreateTestCrawl, sbSubscribeCrawlLogs, sbCreateTestSteps } from "../supabaseApi";
 
 const { Paragraph } = Typography;
 
@@ -55,7 +55,26 @@ const CrawlTestPage: React.FC = () => {
     }
     await form.validateFields();
     const url = values.url;
-    const { jobId } = await sbCreateTestCrawl(nodeId, url);
+    const { jobId } = await sbCreateTestCrawl(nodeId, url, { timeout_ms: values.timeout_ms, retries: values.retries });
+    setJobId(jobId);
+    setLogs([]);
+    if (sub) { sub(); setSub(null); }
+    const unsubscribe = sbSubscribeCrawlLogs(jobId, (row: any) => {
+      setLogs((prev) => [...prev, row]);
+    });
+    setSub(() => unsubscribe);
+  };
+
+  const runSteps = async () => {
+    if (!usingSupabase) return;
+    const values = await form.validateFields();
+    const nodeId = values.nodeId;
+    const url = values.url;
+    let steps: any[] = [];
+    try { steps = JSON.parse(String(values.steps || "[]")); } catch { steps = []; }
+    const timeout_ms = values.timeout_ms;
+    const retries = values.retries;
+    const { jobId } = await sbCreateTestSteps(nodeId, url, steps, { timeout_ms, retries });
     setJobId(jobId);
     setLogs([]);
     if (sub) { sub(); setSub(null); }
@@ -79,7 +98,7 @@ const CrawlTestPage: React.FC = () => {
   return (
     <List title="爬虫测试">
       <Card style={{ marginBottom: 16 }}>
-        <Form form={form} layout="inline" initialValues={{ url: "https://example.com", mode: "server" }}>
+        <Form form={form} layout="inline" initialValues={{ url: "https://example.com", mode: "server", timeout_ms: 30000, retries: 0 }}>
           <Form.Item name="url" label="目标URL" rules={[{ required: true, message: "请输入URL" }]}> 
             <Input style={{ width: 360 }} placeholder="https://..." />
           </Form.Item>
@@ -104,8 +123,26 @@ const CrawlTestPage: React.FC = () => {
               ))}
             </Select>
           </Form.Item>
+          <Form.Item name="timeout_ms" label="超时(ms)">
+            <InputNumber style={{ width: 140 }} min={1000} step={1000} />
+          </Form.Item>
+          <Form.Item name="retries" label="重试次数">
+            <InputNumber style={{ width: 120 }} min={0} max={5} />
+          </Form.Item>
           <Form.Item>
             <Button type="primary" onClick={startTest} disabled={!usingSupabase}>开始测试</Button>
+          </Form.Item>
+          <Form.Item>
+            <Button onClick={runSteps} disabled={!usingSupabase}>执行步骤</Button>
+          </Form.Item>
+        </Form>
+      </Card>
+
+      <Card title="步骤 JSON（可选）" style={{ marginBottom: 16 }}>
+        <Paragraph type="secondary">示例：[{`{ action: "wait_for_selector", selector: "#q" }`}, {`{ action: "fill", selector: "#q", value: "手机" }`}, {`{ action: "click", selector: "#search" }`}, {`{ action: "evaluate_text", selector: "#price" }`}]</Paragraph>
+        <Form form={form} layout="vertical">
+          <Form.Item name="steps">
+            <Input.TextArea rows={6} placeholder="填写可执行步骤的 JSON 数组" />
           </Form.Item>
         </Form>
       </Card>
@@ -134,6 +171,21 @@ const CrawlTestPage: React.FC = () => {
             <Tag>来源</Tag>
             <span>{parsedResult.url}</span>
           </Space>
+          {!!parsedResult.outputs && Array.isArray(parsedResult.outputs) && parsedResult.outputs.length > 0 && (
+            <Table
+              style={{ marginTop: 12 }}
+              rowKey={(r) => (r.selector || r.type || "") + (r.index || "")}
+              dataSource={parsedResult.outputs}
+              pagination={false}
+              size="small"
+              columns={[
+                { title: "类型", dataIndex: "type" },
+                { title: "选择器", dataIndex: "selector" },
+                { title: "值", dataIndex: "value" },
+                { title: "截图", dataIndex: "url", render: (u: string) => u ? <a href={u} target="_blank" rel="noreferrer">查看</a> : null },
+              ]}
+            />
+          )}
         </Card>
       )}
 
@@ -147,6 +199,8 @@ const CrawlTestPage: React.FC = () => {
             columns={[
               { title: "时间", dataIndex: "created_at" },
               { title: "类型", dataIndex: "type", render: (v: string) => <Tag>{v}</Tag> },
+              { title: "标题", dataIndex: "title" },
+              { title: "时长(ms)", dataIndex: "duration_ms" },
               { title: "链接", dataIndex: "url", render: (u: string, r: any) => (
                 <Space>
                   <a href={u} target="_blank" rel="noreferrer">下载</a>

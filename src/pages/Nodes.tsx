@@ -29,6 +29,23 @@ const NodesPage: React.FC = () => {
     return () => { if (unsub) unsub(); };
   }, []);
 
+  const sorted = React.useMemo(() => {
+    const score = (n: any) => {
+      const st = n.status === "online" ? 0 : n.status === "paused" ? 1 : 2;
+      const rg = String(n.region).toLowerCase() === "local" ? 0 : 1;
+      const lat = typeof n.latency_ms === "number" ? n.latency_ms : 999999;
+      return [st, rg, lat];
+    };
+    return items.slice().sort((a, b) => {
+      const sa = score(a);
+      const sb = score(b);
+      for (let i = 0; i < sa.length; i++) {
+        if (sa[i] !== sb[i]) return sa[i] - sb[i];
+      }
+      return 0;
+    });
+  }, [items]);
+
   const send = async (record: any, command: string) => {
     if (!usingSupabase) return;
     await sbCreateNodeCommand(record.id, command);
@@ -38,7 +55,7 @@ const NodesPage: React.FC = () => {
     <List title="运行时节点">
       <Table
         rowKey="id"
-        dataSource={items}
+        dataSource={sorted}
         pagination={false}
         columns={[
           { title: "ID", dataIndex: "id" },
@@ -47,6 +64,7 @@ const NodesPage: React.FC = () => {
           { title: "区域", dataIndex: "region" },
           { title: "版本", dataIndex: "version" },
           { title: "状态", dataIndex: "status", render: (v: string) => <Tag color={v === "online" ? "green" : v === "paused" ? "orange" : "red"}>{v}</Tag> },
+          { title: "延迟(ms)", dataIndex: "latency_ms" },
           { title: "执行中", dataIndex: "current_tasks" },
           { title: "队列", dataIndex: "queue_size" },
           { title: "累计完成", dataIndex: "total_completed" },
@@ -58,6 +76,7 @@ const NodesPage: React.FC = () => {
               <Space>
                 <Button size="small" onClick={() => send(record, "pause")}>暂停</Button>
                 <Button size="small" onClick={() => send(record, "resume")}>恢复</Button>
+                <Button size="small" onClick={() => send(record, "ping")}>测延迟</Button>
               </Space>
             ),
           },

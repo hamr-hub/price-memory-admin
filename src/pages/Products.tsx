@@ -1,5 +1,5 @@
 import { List, useTable, CreateButton, ShowButton, EditButton, DeleteButton } from "@refinedev/antd";
-import { Table, Space, Button, Form, Input } from "antd";
+import { Table, Space, Button, Form, Input, message } from "antd";
 import { useCan, useCustom } from "@refinedev/core";
 import React from "react";
 import { API_BASE, getApiKey } from "../api";
@@ -12,6 +12,14 @@ const ProductsPage: React.FC = () => {
   const { data: canDelete } = useCan({ resource: "products", action: "delete" });
   const [selectedRowKeys, setSelectedRowKeys] = React.useState<any[]>([]);
   const [exportIds, setExportIds] = React.useState<string | null>(null);
+  const [form] = Form.useForm();
+  const onSearch = (values: any) => {
+    const filters: any[] = [];
+    if (values.name) filters.push({ field: "name", operator: "contains", value: values.name });
+    if (values.url) filters.push({ field: "url", operator: "contains", value: values.url });
+    if (values.category) filters.push({ field: "category", operator: "eq", value: values.category });
+    setFilters(filters, "replace");
+  };
   const exportQuery: any = useCustom({ url: exportIds ? `${API_BASE}/export?product_ids=${exportIds}` : "", method: "get", meta: { responseType: "blob" }, queryOptions: { enabled: !!exportIds } });
   React.useEffect(() => {
     const blob: Blob | undefined = exportQuery?.data?.data;
@@ -75,11 +83,3 @@ const ProductsPage: React.FC = () => {
 };
 
 export default ProductsPage;
-  const [form] = Form.useForm();
-  const onSearch = (values: any) => {
-    const filters: any[] = [];
-    if (values.name) filters.push({ field: "name", operator: "contains", value: values.name });
-    if (values.url) filters.push({ field: "url", operator: "contains", value: values.url });
-    if (values.category) filters.push({ field: "category", operator: "eq", value: values.category });
-    setFilters(filters, "replace");
-  };

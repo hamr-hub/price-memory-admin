@@ -140,7 +140,7 @@ export function sbSubscribePrices(handler: (payload: any) => void) {
 export async function sbListRuntimeNodes() {
   const { data, error } = await supabase
     .from("runtime_nodes")
-    .select("id,name,host,region,version,status,current_tasks,queue_size,total_completed,last_seen")
+    .select("id,name,host,region,version,status,current_tasks,queue_size,total_completed,last_seen,latency_ms")
     .order("last_seen", { ascending: false });
   if (error) throw error;
   return data || [];
@@ -175,8 +175,9 @@ export async function sbCreateNodeCommand(nodeId: number, command: string, paylo
   return data;
 }
 
-export async function sbCreateTestCrawl(nodeId: number, url: string, jobId?: string) {
-  const payload = { url, job_id: jobId || `${Date.now()}_${Math.random().toString(36).slice(2)}` };
+export async function sbCreateTestCrawl(nodeId: number, url: string, jobIdOrOpts?: string | { jobId?: string; timeout_ms?: number; retries?: number }) {
+  const opts = typeof jobIdOrOpts === "string" ? { jobId: jobIdOrOpts } : (jobIdOrOpts || {} as any);
+  const payload = { url, job_id: opts.jobId || `${Date.now()}_${Math.random().toString(36).slice(2)}`, timeout_ms: opts.timeout_ms, retries: opts.retries } as any;
   const cmd = await sbCreateNodeCommand(nodeId, "test_crawl", payload);
   return { command: cmd, jobId: payload.job_id };
 }
@@ -193,6 +194,18 @@ export function sbSubscribeCrawlLogs(jobId: string, handler: (payload: any) => v
   return () => {
     supabase.removeChannel(channel);
   };
+}
+
+export async function sbCreateTestSteps(nodeId: number, url: string, steps: any[], opts?: { jobId?: string; timeout_ms?: number; retries?: number }) {
+  const payload = {
+    url,
+    steps,
+    job_id: opts?.jobId || `${Date.now()}_${Math.random().toString(36).slice(2)}`,
+    timeout_ms: opts?.timeout_ms,
+    retries: opts?.retries,
+  };
+  const cmd = await sbCreateNodeCommand(nodeId, "test_steps", payload);
+  return { command: cmd, jobId: payload.job_id };
 }
 
 export async function sbUploadImage(file: File, filename: string) {
