@@ -18,6 +18,7 @@ test("登录后在公共池选择并关注商品（网络拦截）", async ({ pa
   });
 
   await page.goto("/pool");
+  await expect(page).toHaveURL(/\/pool$/);
   await expect(page.getByText("公共商品池")).toBeVisible();
   await expect(page.getByText("E2E商品")).toBeVisible();
   await page.getByRole("button", { name: "选择并关注" }).click();

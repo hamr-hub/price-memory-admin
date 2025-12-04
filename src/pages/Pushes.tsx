@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { List, Button, Space, Segmented, message, Typography, Tag } from "antd";
-import { useGetIdentity, useList, useCan, useSubscription } from "@refinedev/core";
+import { useGetIdentity, useCan, useSubscription, useTable } from "@refinedev/core";
 import { dataProvider } from "../dataProvider";
 
 type User = { id: number; username: string; display_name?: string | null };
@@ -9,34 +9,30 @@ type Push = { id: number; sender_id: number; recipient_id: number; product_id: n
 export default function PushesPage() {
   const { data: identity } = useGetIdentity<User>();
   const [box, setBox] = useState<"inbox" | "outbox">("inbox");
-  const { queryResult, refetch } = useList<Push>({ resource: "pushes", filters: [
+  const [status, setStatus] = useState<"all" | "pending" | "accepted" | "rejected">("all");
+  const { tableProps, setFilters, tableQueryResult, refetch } = useTable<Push>({ resource: "pushes", filters: [
     { field: "user_id", operator: "eq", value: identity?.id },
     { field: "box", operator: "eq", value: box },
-  ], queryOptions: { enabled: !!identity?.id } });
-  const items = (queryResult as any)?.data?.data || [];
-  const loading = (queryResult as any)?.isLoading;
+    { field: "status", operator: "eq", value: status === "all" ? undefined : status },
+  ], pagination: { pageSize: 10 } });
+  const items = (tableProps as any)?.dataSource || [];
+  const loading = tableQueryResult?.isLoading;
 
   const userLabel = useMemo(() => (u: User) => u.display_name || u.username, []);
 
   useEffect(() => { /* 身份由 refine 管理 */ }, []);
 
-  useEffect(() => { refetch(); }, [box, refetch]);
+  useEffect(() => {
+    setFilters([
+      { field: "user_id", operator: "eq", value: identity?.id },
+      { field: "box", operator: "eq", value: box },
+      { field: "status", operator: "eq", value: status === "all" ? undefined : status },
+    ], "replace");
+  }, [box, status, identity?.id, setFilters]);
 
   useSubscription({ channel: "pushes", types: ["created","updated","deleted"], params: { resource: { name: "pushes" } } as any, callback: () => { refetch(); } });
 
-  useEffect(() => {
-    if (!usingSupabase || !currentUser?.id) return;
-    const unsub1 = sbSubscribePushesUpdate(currentUser.id, () => {
-      message.info("推送状态已更新");
-    });
-    const unsub2 = sbSubscribeFollowsInsert(currentUser.id, () => {
-      message.info("关注池新增一条记录");
-    });
-    return () => {
-      unsub1();
-      unsub2();
-    };
-  }, [usingSupabase, currentUser?.id]);
+  
 
   const accept = async (p: Push) => {
     try {
@@ -70,12 +66,16 @@ export default function PushesPage() {
         <Segmented options={[{ label: "收件箱", value: "inbox" }, { label: "发件箱", value: "outbox" }]} value={box} onChange={(v) => setBox(v as any)} />
       </Space>
       <Space style={{ marginBottom: 12 }}>
+        <Segmented options={[{ label: "全部", value: "all" }, { label: "待处理", value: "pending" }, { label: "已接受", value: "accepted" }, { label: "已拒绝", value: "rejected" }]} value={status} onChange={(v) => setStatus(v as any)} />
+      </Space>
+      <Space style={{ marginBottom: 12 }}>
         <Typography.Text>当前用户：</Typography.Text>
         <Tag color="blue">{identity ? userLabel(identity as any) : "加载中"}</Tag>
       </Space>
       <List
         loading={loading}
         dataSource={items}
+        pagination={tableProps.pagination}
         renderItem={(item) => (
           <List.Item
             actions={[

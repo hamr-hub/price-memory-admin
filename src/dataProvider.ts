@@ -109,10 +109,16 @@ export const dataProvider: DataProvider = {
     if (resource === "pushes") {
       const userId = params?.filters?.find((f: any) => f.field === "user_id")?.value;
       const box = params?.filters?.find((f: any) => f.field === "box")?.value;
+      const status = params?.filters?.find((f: any) => f.field === "status")?.value || "";
+      const page = pagination?.current ?? 1;
+      const size = pagination?.pageSize ?? 10;
       if (!userId) throw new Error("user_id is required for pushes list");
-      const json: any = await http(`${API_BASE}/users/${userId}/pushes${box ? `?box=${box}` : ""}`);
-      const data = json.data || [];
-      const total = data.length;
+      const qs = new URLSearchParams({ page: String(page), size: String(size) });
+      if (box) qs.set("box", String(box));
+      if (status && status !== "all") qs.set("status", String(status));
+      const json: any = await http(`${API_BASE}/users/${userId}/pushes?${qs.toString()}`);
+      const data = json.data?.items ?? json.data ?? [];
+      const total = json.data?.total ?? data.length;
       return { data, total };
     }
     throw new Error(`Resource not supported: ${resource}`);
