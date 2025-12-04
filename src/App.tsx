@@ -55,14 +55,31 @@ const authProvider: any = {
 };
 
 const accessControlProvider: AccessControlProvider = {
-  can: async ({ resource, action }) => {
+  can: async ({ resource, action, params }: any) => {
     const role = localStorage.getItem("role") || "guest";
     let can = true;
     if (resource === "products" && (action === "export" || action === "delete")) {
       can = role === "admin";
     }
     if (resource === "collections" && (action === "share" || action === "export")) {
-      can = role === "admin";
+      if (role === "admin") {
+        can = true;
+      } else {
+        const raw = localStorage.getItem("user");
+        const userId = raw ? (JSON.parse(raw) || {}).id : undefined;
+        const id = params?.id;
+        if (!id || !userId) {
+          can = false;
+        } else {
+          try {
+            const res = await fetch(`${API_BASE}/collections/${id}`);
+            const j = await res.json();
+            can = j?.data?.owner_user_id === userId;
+          } catch {
+            can = false;
+          }
+        }
+      }
     }
     if (resource === "public-pool" && action === "select") {
       can = !!localStorage.getItem("token");

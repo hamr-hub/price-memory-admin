@@ -66,11 +66,19 @@ export const dataProvider: DataProvider = {
     const q = query ? `?${new URLSearchParams(query as any).toString()}` : "";
     const res = await fetch(`${fullUrl}${q}`, {
       method: method || "GET",
-      headers: { "Content-Type": "application/json", ...(headers || {}) },
+      headers: { "Content-Type": meta?.responseType === "blob" ? undefined : "application/json", ...(headers || {}) },
       body: payload ? JSON.stringify(payload) : undefined,
     });
     if (!res.ok) throw new Error(await res.text());
-    const text = await res.text();
-    try { const j = JSON.parse(text); return { data: j.data ?? j } as any; } catch { return { data: text } as any; }
+    if (meta?.responseType === "blob") {
+      const b = await res.blob();
+      return { data: b } as any;
+    }
+    if (meta?.responseType === "text") {
+      const t = await res.text();
+      return { data: t } as any;
+    }
+    const t = await res.text();
+    try { const j = JSON.parse(t); return { data: j.data ?? j } as any; } catch { return { data: t } as any; }
   },
 } as any;

@@ -1,6 +1,6 @@
 import { List, useTable, CreateButton, ShowButton, EditButton, DeleteButton } from "@refinedev/antd";
 import { Table, Space, Button } from "antd";
-import { useCan } from "@refinedev/core";
+import { useCan, useCustom } from "@refinedev/core";
 import React from "react";
 import { API_BASE } from "../api";
 
@@ -8,17 +8,23 @@ const ProductsPage: React.FC = () => {
   const { tableProps } = useTable({ resource: "products" });
   const { data: canExport } = useCan({ resource: "products", action: "export" });
   const [selectedRowKeys, setSelectedRowKeys] = React.useState<any[]>([]);
-  const onExport = async () => {
+  const [exportIds, setExportIds] = React.useState<string | null>(null);
+  const exportQuery: any = useCustom({ url: exportIds ? `${API_BASE}/export?product_ids=${exportIds}` : "", method: "get", meta: { responseType: "blob" }, queryOptions: { enabled: !!exportIds } });
+  React.useEffect(() => {
+    const blob: Blob | undefined = exportQuery?.data?.data;
+    if (blob) {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "products_export.csv";
+      a.click();
+      URL.revokeObjectURL(url);
+      setExportIds(null);
+    }
+  }, [exportQuery?.data?.data]);
+  const onExport = () => {
     if (!selectedRowKeys.length) return;
-    const ids = selectedRowKeys.join(",");
-    const res = await fetch(`${API_BASE}/export?product_ids=${ids}`);
-    const blob = await res.blob();
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "products_export.csv";
-    a.click();
-    URL.revokeObjectURL(url);
+    setExportIds(selectedRowKeys.join(","));
   };
 
   return (

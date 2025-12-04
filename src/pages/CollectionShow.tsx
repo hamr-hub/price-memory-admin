@@ -12,8 +12,8 @@ const CollectionShowPage: React.FC = () => {
   const [addOpen, setAddOpen] = React.useState(false);
   const [shareForm] = Form.useForm();
   const [addForm] = Form.useForm();
-  const { data: canShare } = useCan({ resource: "collections", action: "share" });
-  const { data: canExport } = useCan({ resource: "collections", action: "export" });
+  const { data: canShare } = useCan({ resource: "collections", action: "share", params: { id: data?.id } });
+  const { data: canExport } = useCan({ resource: "collections", action: "export", params: { id: data?.id } });
 
 
   const onShare = async () => {
@@ -52,19 +52,23 @@ const CollectionShowPage: React.FC = () => {
     }
   };
 
-  const onExport = async () => {
-    const url = `${API_BASE}/collections/${data.id}/export.xlsx`;
-    const res = await fetch(url);
-    if (res.ok && res.headers.get("content-type")?.includes("application/vnd.openxmlformats-officedocument")) {
-      const blob = await res.blob();
+  const [exportStart, setExportStart] = React.useState(false);
+  const exportQuery: any = useCustom({ url: data?.id ? `${API_BASE}/collections/${data.id}/export.xlsx` : "", method: "get", meta: { responseType: "blob" }, queryOptions: { enabled: !!data?.id && exportStart } });
+  React.useEffect(() => {
+    const blob: Blob | undefined = exportQuery?.data?.data;
+    if (blob) {
+      const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
-      a.href = URL.createObjectURL(blob);
-      a.download = `collection_${id}.xlsx`;
+      a.href = url;
+      a.download = `collection_${data.id}.xlsx`;
       a.click();
-      URL.revokeObjectURL(a.href);
-    } else {
-      try { const json = await res.json(); message.error(json.error?.message || "导出失败"); } catch { message.error("导出失败"); }
+      URL.revokeObjectURL(url);
+      setExportStart(false);
     }
+  }, [exportQuery?.data?.data]);
+  const onExport = () => {
+    if (!data?.id) return;
+    setExportStart(true);
   };
 
   return (

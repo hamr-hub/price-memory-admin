@@ -8,24 +8,16 @@ import TrendChart from "../components/TrendChart";
 const ProductsShow: React.FC = () => {
   const show: any = useShow({ resource: "products" });
   const record = show?.queryResult?.data?.data || {};
-  const [prices, setPrices] = React.useState<any[]>([]);
-  const [trend, setTrend] = React.useState<any[]>([]);
+  const pricesQuery: any = useCustom({ url: record?.id ? `${API_BASE}/products/${record.id}/prices` : "", method: "get", queryOptions: { enabled: !!record?.id } });
+  const trendQuery: any = useCustom({ url: record?.id ? `${API_BASE}/products/${record.id}/trend` : "", method: "get", queryOptions: { enabled: !!record?.id } });
   const { data: alertsList } = useList({ resource: "alerts", filters: [{ field: "product_id", operator: "eq", value: record?.id }] });
   const alerts = alertsList?.data ?? [];
   const [threshold, setThreshold] = React.useState<number | undefined>(undefined);
   const user = React.useMemo(() => {
     try { return JSON.parse(localStorage.getItem("user") || "null"); } catch { return null; }
   }, []);
-  React.useEffect(() => {
-    if (record?.id) {
-      (async () => {
-        const p = await fetch(`${API_BASE}/products/${record.id}/prices`).then(r => r.json());
-        setPrices(p?.data || []);
-        const t = await fetch(`${API_BASE}/products/${record.id}/trend`).then(r => r.json());
-        setTrend(t?.data?.series || []);
-      })();
-    }
-  }, [record?.id]);
+  const prices = pricesQuery?.data?.data || [];
+  const trend = trendQuery?.data?.data?.series || [];
   const { mutateAsync: createAlert } = useCreate();
   const onCreateAlert = async () => {
     if (!user?.id || !record?.id || threshold === undefined) return;
@@ -78,6 +70,7 @@ const ProductsShow: React.FC = () => {
         style={{ marginTop: 12 }}
         rowKey="id"
         dataSource={prices}
+        loading={pricesQuery?.isLoading}
         pagination={{ pageSize: 10 }}
         columns={[
           { title: "价格ID", dataIndex: "id" },
