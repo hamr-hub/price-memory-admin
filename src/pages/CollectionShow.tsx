@@ -2,6 +2,8 @@ import { Show } from "@refinedev/antd";
 import { Descriptions, Table, Button, Space, Modal, Form, Input, message } from "antd";
 import React from "react";
 import { API_BASE } from "../api";
+import { dataProvider } from "../dataProvider";
+import { downloadBlob } from "../utils/download";
 import { useCan } from "@refinedev/core";
 import { useShow, useCustom } from "@refinedev/core";
 
@@ -19,9 +21,8 @@ const CollectionShowPage: React.FC = () => {
   const onShare = async () => {
     const values = await shareForm.validateFields();
     try {
-      const res = await fetch(`${API_BASE}/collections/${data.id}/share`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ user_id: Number(values.user_id), role: values.role || "editor" }) });
-      const json = await res.json();
-      if (json.success) {
+      const res: any = await dataProvider.custom({ resource: "collections", method: "post", meta: { path: `/${data.id}/share` }, payload: { user_id: Number(values.user_id), role: values.role || "editor" } });
+      if (res?.data) {
       message.success("分享成功");
       setShareOpen(false);
       shareForm.resetFields();
@@ -37,9 +38,8 @@ const CollectionShowPage: React.FC = () => {
   const onAddProduct = async () => {
     const values = await addForm.validateFields();
     try {
-      const res = await fetch(`${API_BASE}/collections/${data.id}/products`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ product_id: Number(values.product_id) }) });
-      const json = await res.json();
-      if (json.success) {
+      const res: any = await dataProvider.custom({ resource: "collections", method: "post", meta: { path: `/${data.id}/products` }, payload: { product_id: Number(values.product_id) } });
+      if (res?.data) {
       message.success("已添加商品");
       setAddOpen(false);
       addForm.resetFields();
@@ -57,12 +57,7 @@ const CollectionShowPage: React.FC = () => {
   React.useEffect(() => {
     const blob: Blob | undefined = exportQuery?.data?.data;
     if (blob) {
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `collection_${data.id}.xlsx`;
-      a.click();
-      URL.revokeObjectURL(url);
+      downloadBlob(blob, `collection_${data.id}.xlsx`);
       setExportStart(false);
     }
   }, [exportQuery?.data?.data]);

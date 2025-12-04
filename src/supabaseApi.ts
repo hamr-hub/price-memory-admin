@@ -104,6 +104,64 @@ export function sbSubscribePrices(handler: (payload: any) => void) {
   };
 }
 
+export async function sbListRuntimeNodes() {
+  const { data, error } = await supabase
+    .from("runtime_nodes")
+    .select("id,name,host,region,version,status,current_tasks,queue_size,total_completed,last_seen")
+    .order("last_seen", { ascending: false });
+  if (error) throw error;
+  return data || [];
+}
+
+export function sbSubscribeRuntimeNodes(handler: (payload: any) => void) {
+  const channel = supabase
+    .channel("runtime_nodes")
+    .on(
+      "postgres_changes",
+      { event: "UPDATE", schema: "public", table: "runtime_nodes" },
+      (payload: any) => handler(payload)
+    )
+    .on(
+      "postgres_changes",
+      { event: "INSERT", schema: "public", table: "runtime_nodes" },
+      (payload: any) => handler(payload)
+    )
+    .subscribe();
+  return () => {
+    supabase.removeChannel(channel);
+  };
+}
+
+export async function sbCreateNodeCommand(nodeId: number, command: string, payload?: any) {
+  const { data, error } = await supabase
+    .from("node_commands")
+    .insert([{ node_id: nodeId, command, payload, status: "pending", created_at: new Date().toISOString() }])
+    .select("*")
+    .single();
+  if (error) throw error;
+  return data;
+}
+
+export async function sbCreateTestCrawl(nodeId: number, url: string, jobId?: string) {
+  const payload = { url, job_id: jobId || `${Date.now()}_${Math.random().toString(36).slice(2)}` };
+  const cmd = await sbCreateNodeCommand(nodeId, "test_crawl", payload);
+  return { command: cmd, jobId: payload.job_id };
+}
+
+export function sbSubscribeCrawlLogs(jobId: string, handler: (payload: any) => void) {
+  const channel = supabase
+    .channel("crawl_logs:" + jobId)
+    .on(
+      "postgres_changes",
+      { event: "INSERT", schema: "public", table: "crawl_logs", filter: `job_id=eq.${jobId}` },
+      (payload: any) => handler(payload?.new || payload?.record || payload)
+    )
+    .subscribe();
+  return () => {
+    supabase.removeChannel(channel);
+  };
+}
+
 export async function sbUploadImage(file: File, filename: string) {
   const path = `${Date.now()}_${filename}`;
   const { error } = await supabase.storage.from("images").upload(path, file, { upsert: true });

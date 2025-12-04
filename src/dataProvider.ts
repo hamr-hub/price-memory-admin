@@ -1,4 +1,4 @@
-import type { DataProvider } from "@refinedev/core";
+import type { DataProvider, BaseRecord } from "@refinedev/core";
 import { API_BASE } from "./api";
 
 async function http<T>(url: string, init?: RequestInit): Promise<T> {
@@ -8,15 +8,14 @@ async function http<T>(url: string, init?: RequestInit): Promise<T> {
 }
 
 export const dataProvider: DataProvider = {
-  getList: async (params: any) => {
-    const { resource, pagination } = params;
+  getList: async ({ resource, pagination }) => {
     if (resource === "products") {
       const page = pagination?.current ?? 1;
       const size = pagination?.pageSize ?? 20;
       const json: any = await http(`${API_BASE}/products?page=${page}&size=${size}`);
       const data = json.data?.items || [];
       const total = json.data?.total ?? data.length;
-      return { data, total } as any;
+      return { data, total };
     }
     if (resource === "public-pool") {
       const page = pagination?.current ?? 1;
@@ -24,7 +23,7 @@ export const dataProvider: DataProvider = {
       const json: any = await http(`${API_BASE}/pools/public/products?page=${page}&size=${size}`);
       const data = json.data?.items || [];
       const total = json.data?.total ?? data.length;
-      return { data, total } as any;
+      return { data, total };
     }
     if (resource === "alerts") {
       const raw = localStorage.getItem("user");
@@ -35,31 +34,50 @@ export const dataProvider: DataProvider = {
       const json: any = await http(`${API_BASE}/alerts${q ? `?${q}` : ""}`);
       const data = json.data || [];
       const total = data.length;
-      return { data, total } as any;
+      return { data, total };
+    }
+    if (resource === "collections") {
+      const raw = localStorage.getItem("user");
+      const user = raw ? JSON.parse(raw) : null;
+      const json: any = await http(`${API_BASE}/users/${user?.id}/collections`);
+      const data = json.data || [];
+      const total = data.length;
+      return { data, total };
     }
     throw new Error(`Resource not supported: ${resource}`);
   },
-  getOne: async (params: any) => {
-    const { resource, id } = params;
+  getOne: async ({ resource, id }) => {
     const json: any = await http(`${API_BASE}/${resource}/${id}`);
-    return { data: json.data } as any;
+    return { data: json.data as BaseRecord };
   },
-  create: async (params: any) => {
-    const { resource, variables } = params;
+  create: async ({ resource, variables }) => {
     const json: any = await http(`${API_BASE}/${resource}`, { method: "POST", body: JSON.stringify(variables) });
-    return { data: json.data } as any;
+    return { data: json.data as BaseRecord };
   },
-  update: async (params: any) => {
-    const { resource, id, variables } = params;
-    const json: any = await http(`${API_BASE}/${resource}/${id}`, { method: "PUT", body: JSON.stringify(variables) });
-    return { data: json.data } as any;
+  update: async ({ resource, id, variables }) => {
+    const res = await fetch(`${API_BASE}/${resource}/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(variables) });
+    const text = await res.text();
+    if (!res.ok) throw new Error(text || "UPDATE_FAILED");
+    const json = text ? JSON.parse(text) : {};
+    return { data: (json.data ?? {}) as BaseRecord };
   },
-  deleteOne: async (params: any) => {
-    const { resource, id } = params;
-    const json: any = await http(`${API_BASE}/${resource}/${id}`, { method: "DELETE" });
-    return { data: json.data } as any;
+  deleteOne: async ({ resource, id }) => {
+    const res = await fetch(`${API_BASE}/${resource}/${id}`, { method: "DELETE" });
+    const text = await res.text();
+    if (!res.ok) throw new Error(text || "DELETE_FAILED");
+    const json = text ? JSON.parse(text) : {};
+    return { data: (json.data ?? { id }) as BaseRecord };
   },
-  getMany: async () => ({ data: [] } as any),
+  getMany: async ({ resource, ids }) => {
+    const results: BaseRecord[] = [];
+    for (const id of ids) {
+      try {
+        const json: any = await http(`${API_BASE}/${resource}/${id}`);
+        if (json?.data) results.push(json.data as BaseRecord);
+      } catch {}
+    }
+    return { data: results };
+  },
   getApiUrl: () => API_BASE,
   custom: async ({ url, method, headers, meta, payload, query, resource }: any) => {
     const fullUrl = url || `${API_BASE}/${resource}${meta?.path || ""}`;

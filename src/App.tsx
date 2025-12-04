@@ -24,6 +24,8 @@ import CollectionsListPage from "./pages/CollectionsList";
 import CollectionShowPage from "./pages/CollectionShow";
 import { Header } from "./components/header";
 import PushesPage from "./pages/Pushes";
+import NodesPage from "./pages/Nodes";
+import CrawlTestPage from "./pages/CrawlTest";
 import { API_BASE } from "./api";
 const restProvider = dataProvider;
 
@@ -107,6 +109,8 @@ function App() {
                   { name: "public-pool", list: "/pool" },
                   { name: "collections", list: "/collections", show: "/collections/show/:id" },
                   { name: "pushes", list: "/pushes" },
+                  { name: "nodes", list: "/nodes" },
+                  { name: "crawl-test", list: "/crawl-test" },
                 ]}
                 options={{
                   syncWithLocation: true,
@@ -132,6 +136,8 @@ function App() {
                     <Route path="/collections" element={<CollectionsListPage />} />
                     <Route path="/collections/show/:id" element={<CollectionShowPage />} />
                     <Route path="/pushes" element={<PushesPage />} />
+                    <Route path="/nodes" element={<NodesPage />} />
+                    <Route path="/crawl-test" element={<CrawlTestPage />} />
                   </Route>
                 </Routes>
                 <RefineKbar />

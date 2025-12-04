@@ -3,6 +3,7 @@ import { Table, Space, Button } from "antd";
 import { useCan, useCustom } from "@refinedev/core";
 import React from "react";
 import { API_BASE } from "../api";
+import { downloadBlob } from "../utils/download";
 
 const ProductsPage: React.FC = () => {
   const { tableProps } = useTable({ resource: "products" });
@@ -13,12 +14,7 @@ const ProductsPage: React.FC = () => {
   React.useEffect(() => {
     const blob: Blob | undefined = exportQuery?.data?.data;
     if (blob) {
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = "products_export.csv";
-      a.click();
-      URL.revokeObjectURL(url);
+      downloadBlob(blob, "products_export.csv");
       setExportIds(null);
     }
   }, [exportQuery?.data?.data]);

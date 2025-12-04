@@ -3,6 +3,7 @@ import { Table, Button, message } from "antd";
 import { useTable, useGetIdentity, useCan } from "@refinedev/core";
 import React from "react";
 import { API_BASE } from "../api";
+import { dataProvider } from "../dataProvider";
 
 const PublicPoolPage: React.FC = () => {
   const { tableProps } = useTable({ resource: "public-pool", pagination: { pageSize: 20 } });
@@ -13,9 +14,8 @@ const PublicPoolPage: React.FC = () => {
     const userId = identity?.id;
     if (!userId) return message.error("未登录");
     try {
-      const res = await fetch(`${API_BASE}/users/${userId}/select_from_pool`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ product_id: record.id }) });
-      const j = await res.json();
-      if (j.success) message.success("已选择并关注"); else message.error(j.error?.message || "操作失败");
+      const res: any = await dataProvider.custom({ resource: "users", method: "post", meta: { path: `/${userId}/select_from_pool` }, payload: { product_id: record.id } });
+      if (res?.data) message.success("已选择并关注"); else message.error("操作失败");
     } catch (e: any) { message.error(e.message || "操作失败"); }
   };
 
