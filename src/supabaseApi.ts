@@ -208,3 +208,23 @@ export function sbGetPublicUrl(path: string) {
 }
 
 export const usingSupabase = hasSupabase;
+
+export async function sbGetProductStats(productId: number) {
+  const { data, error } = await supabase.rpc("product_price_stats", { p_product_id: productId });
+  if (error) throw error;
+  const row = Array.isArray(data) ? data[0] : data;
+  return { min_price: row?.min_price ?? null, max_price: row?.max_price ?? null, avg_price: row?.avg_price ?? null, count: row?.count ?? 0 };
+}
+
+export async function sbEnsureAuthUser() {
+  const { data: userData } = await supabase.auth.getUser();
+  const user = userData.user;
+  if (!user) return null;
+  const email = user.email || user.user_metadata?.email || `user_${user.id}`;
+  const display = user.user_metadata?.username || user.user_metadata?.full_name || email;
+  const { data: exists } = await supabase.from("users").select("id").eq("auth_uid", user.id).limit(1).maybeSingle();
+  if (exists) return exists;
+  const { data, error } = await supabase.from("users").insert([{ username: email, display_name: display, auth_uid: user.id, created_at: new Date().toISOString() }]).select("id").single();
+  if (error) throw error;
+  return data;
+}

@@ -12,6 +12,7 @@ const CrawlTestPage: React.FC = () => {
   const [jobId, setJobId] = React.useState<string | undefined>();
   const [logs, setLogs] = React.useState<any[]>([]);
   const [sub, setSub] = React.useState<(() => void) | null>(null);
+  const [mode, setMode] = React.useState<string>("server");
 
   React.useEffect(() => {
     let unsub: any;
@@ -41,8 +42,18 @@ const CrawlTestPage: React.FC = () => {
 
   const startTest = async () => {
     if (!usingSupabase) return;
-    const values = await form.validateFields();
-    const nodeId = values.nodeId;
+    const values = await form.getFieldsValue();
+    let nodeId = values.nodeId;
+    if (!nodeId) {
+      if (mode === "client") {
+        const local = nodes.find((n) => String(n.region).toLowerCase() === "local");
+        if (local) {
+          nodeId = local.id;
+          form.setFieldsValue({ nodeId });
+        }
+      }
+    }
+    await form.validateFields();
     const url = values.url;
     const { jobId } = await sbCreateTestCrawl(nodeId, url);
     setJobId(jobId);
@@ -68,9 +79,21 @@ const CrawlTestPage: React.FC = () => {
   return (
     <List title="爬虫测试">
       <Card style={{ marginBottom: 16 }}>
-        <Form form={form} layout="inline" initialValues={{ url: "https://example.com" }}>
+        <Form form={form} layout="inline" initialValues={{ url: "https://example.com", mode: "server" }}>
           <Form.Item name="url" label="目标URL" rules={[{ required: true, message: "请输入URL" }]}> 
             <Input style={{ width: 360 }} placeholder="https://..." />
+          </Form.Item>
+          <Form.Item name="mode" label="模式">
+            <Select style={{ width: 160 }} onChange={(v) => {
+              setMode(v);
+              if (v === "client") {
+                const local = nodes.find((n) => String(n.region).toLowerCase() === "local");
+                if (local) form.setFieldsValue({ nodeId: local.id });
+              }
+            }}>
+              <Select.Option value="server">服务节点</Select.Option>
+              <Select.Option value="client">客户端优先</Select.Option>
+            </Select>
           </Form.Item>
           <Form.Item name="nodeId" label="节点" rules={[{ required: true, message: "请选择节点" }]}> 
             <Select style={{ width: 220 }} loading={loadingNodes} placeholder="选择节点">

@@ -4,7 +4,7 @@ import React from "react";
 import { useShow, useList, useCreate, useCustom } from "@refinedev/core";
 import { API_BASE } from "../api";
 import TrendChart from "../components/TrendChart";
-import { usingSupabase, sbUploadImage, sbGetPublicUrl } from "../supabaseApi";
+import { usingSupabase, sbUploadImage, sbGetPublicUrl, sbGetProductStats } from "../supabaseApi";
 
 const ProductsShow: React.FC = () => {
   const show: any = useShow({ resource: "products" });
@@ -15,6 +15,18 @@ const ProductsShow: React.FC = () => {
   const [range, setRange] = React.useState<any>(null);
   const [comparePrev, setComparePrev] = React.useState<boolean>(false);
   const [imageUrl, setImageUrl] = React.useState<string | undefined>(undefined);
+  const [stats, setStats] = React.useState<{ min_price: number | null; max_price: number | null; avg_price: number | null; count: number } | null>(null);
+  React.useEffect(() => {
+    const loadStats = async () => {
+      const id = record?.id;
+      if (!id || !usingSupabase) return;
+      try {
+        const s = await sbGetProductStats(id);
+        setStats(s);
+      } catch {}
+    };
+    loadStats();
+  }, [record?.id]);
   const qs: string[] = [];
   if (range?.[0] && range?.[1]) {
     qs.push(`start_date=${range[0].format("YYYY-MM-DD")}`);
@@ -60,7 +72,7 @@ const ProductsShow: React.FC = () => {
         <Descriptions.Item label="名称">{record.name}</Descriptions.Item>
         <Descriptions.Item label="链接">{record.url}</Descriptions.Item>
         <Descriptions.Item label="类别">{record.category}</Descriptions.Item>
-        <Descriptions.Item label="统计">最小:{record.stats?.min_price} 最大:{record.stats?.max_price} 平均:{record.stats?.avg_price}</Descriptions.Item>
+        <Descriptions.Item label="统计">最小:{(stats?.min_price ?? record.stats?.min_price) as any} 最大:{(stats?.max_price ?? record.stats?.max_price) as any} 平均:{(stats?.avg_price ?? record.stats?.avg_price) as any}</Descriptions.Item>
         {usingSupabase && (
           <Descriptions.Item label="图片">
             <Space>

@@ -1,9 +1,11 @@
 import { supabase } from "./supabase";
+import { sbEnsureAuthUser } from "./supabaseApi";
 
 const supabaseAuthProvider = {
   login: async ({ email, password }: { email: string; password: string }) => {
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) return { success: false, error: error.message } as any;
+    try { await sbEnsureAuthUser(); } catch {}
     return { success: true, redirectTo: "/" };
   },
   logout: async () => {
@@ -29,4 +31,3 @@ const supabaseAuthProvider = {
 };
 
 export default supabaseAuthProvider;
-

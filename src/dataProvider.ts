@@ -11,11 +11,21 @@ async function http<T>(url: string, init?: RequestInit): Promise<T> {
 
 export const dataProvider: DataProvider = {
   getList: async (params: any) => {
-    const { resource, pagination } = params;
+    const { resource, pagination, filters } = params;
     if (resource === "products") {
       const page = pagination?.current ?? 1;
       const size = pagination?.pageSize ?? 20;
-      const json: any = await http(`${API_BASE}/products?page=${page}&size=${size}`);
+      const q: string[] = [];
+      if (Array.isArray(filters)) {
+        for (const f of filters) {
+          if (!f?.value) continue;
+          const val = encodeURIComponent(String(f.value));
+          const key = f.operator === "contains" ? `${f.field}_like` : f.field;
+          q.push(`${key}=${val}`);
+        }
+      }
+      const query = [`page=${page}`, `size=${size}`, ...q].join("&");
+      const json: any = await http(`${API_BASE}/products?${query}`);
       const data = json.data?.items || [];
       const total = json.data?.total ?? data.length;
       return { data, total };

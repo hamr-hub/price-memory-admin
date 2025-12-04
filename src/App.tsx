@@ -12,11 +12,12 @@ import routerProvider, {
 import { App as AntdApp } from "antd";
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { ThemedLayout } from "@refinedev/antd";
-import type { AccessControlProvider } from "@refinedev/core";
+import type { AccessControlProvider, LiveProvider } from "@refinedev/core";
 import { dataProvider } from "./dataProvider";
 import supabaseAuthProvider from "./supabaseAuth";
 import { hasSupabase } from "./supabase";
 import { ColorModeContextProvider } from "./contexts/color-mode";
+import { liveProvider as supabaseLiveProvider } from "./providers/liveSupabase";
 import ProductsPage from "./pages/Products";
 import ProductsCreate from "./pages/ProductsCreate";
 import ProductsEdit from "./pages/ProductsEdit";
@@ -28,7 +29,7 @@ import { Header } from "./components/header";
 import PushesPage from "./pages/Pushes";
 import NodesPage from "./pages/Nodes";
 import CrawlTestPage from "./pages/CrawlTest";
-import { API_BASE } from "./api";
+import { API_BASE, api } from "./api";
 const restProvider = dataProvider;
 
 const localAuthProvider: any = {
@@ -40,6 +41,7 @@ const localAuthProvider: any = {
       "user",
       JSON.stringify({ id: 1, name: email || "演示用户", avatar: undefined })
     );
+    try { await api.createUser(email || "demo", "演示用户"); } catch {}
     return { success: true, redirectTo: "/" };
   },
   logout: async () => {
@@ -62,7 +64,7 @@ const accessControlProvider: AccessControlProvider = {
   can: async ({ resource, action, params }: any) => {
     const role = localStorage.getItem("role") || "guest";
     let can = true;
-    if (resource === "products" && (action === "export" || action === "delete")) {
+    if (resource === "products" && (action === "export" || action === "delete" || action === "edit")) {
       can = role === "admin";
     }
     if (resource === "collections" && (action === "share" || action === "export")) {
@@ -106,6 +108,7 @@ function App() {
                 dataProvider={restProvider}
                 authProvider={hasSupabase ? supabaseAuthProvider : localAuthProvider}
                 accessControlProvider={accessControlProvider}
+                liveProvider={supabaseLiveProvider as LiveProvider}
                 resources={[
                   { name: "products", list: "/products", create: "/products/create", edit: "/products/edit/:id", show: "/products/show/:id" },
                   { name: "public-pool", list: "/pool" },

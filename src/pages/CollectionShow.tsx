@@ -1,5 +1,5 @@
 import { Show } from "@refinedev/antd";
-import { Descriptions, Table, Button, Space, Modal, Form, Input, message } from "antd";
+import { Descriptions, Table, Button, Space, Modal, Form, Input, message, AutoComplete, Select } from "antd";
 import React from "react";
 import { API_BASE } from "../api";
 import { dataProvider } from "../dataProvider";
@@ -14,6 +14,8 @@ const CollectionShowPage: React.FC = () => {
   const [addOpen, setAddOpen] = React.useState(false);
   const [shareForm] = Form.useForm();
   const [addForm] = Form.useForm();
+  const [userOptions, setUserOptions] = React.useState<any[]>([]);
+  const [poolOptions, setPoolOptions] = React.useState<any[]>([]);
   const { data: canShare } = useCan({ resource: "collections", action: "share", params: { id: data?.id } });
   const { data: canExport } = useCan({ resource: "collections", action: "export", params: { id: data?.id } });
 
@@ -66,6 +68,25 @@ const CollectionShowPage: React.FC = () => {
     setExportStart(true);
   };
 
+  const searchUsers = async (q: string) => {
+    if (!q) { setUserOptions([]); return; }
+    try {
+      const res = await fetch(`${API_BASE}/users?search=${encodeURIComponent(q)}&page=1&size=10`);
+      const json = await res.json();
+      const items = (json.data?.items || []).map((u: any) => ({ value: String(u.id), label: `${u.username}${u.email ? ` <${u.email}>` : ""}` }));
+      setUserOptions(items);
+    } catch {}
+  };
+
+  const searchPoolProducts = async (q: string) => {
+    try {
+      const res = await fetch(`${API_BASE}/pools/public/products?search=${encodeURIComponent(q || "")}&page=1&size=10`);
+      const json = await res.json();
+      const items = (json.data?.items || []).map((p: any) => ({ value: String(p.id), label: `${p.name}` }));
+      setPoolOptions(items);
+    } catch {}
+  };
+
   return (
     <Show title="集合详情">
       <Descriptions bordered column={1} size="small">
@@ -101,8 +122,8 @@ const CollectionShowPage: React.FC = () => {
       />
       <Modal title="分享成员" open={shareOpen} onOk={onShare} onCancel={() => setShareOpen(false)}>
         <Form form={shareForm} layout="vertical">
-          <Form.Item label="用户ID" name="user_id" rules={[{ required: true }]}>
-            <Input />
+          <Form.Item label="用户" name="user_id" rules={[{ required: true }]}> 
+            <AutoComplete options={userOptions} onSearch={searchUsers} placeholder="搜索用户名或邮箱" allowClear />
           </Form.Item>
           <Form.Item label="角色" name="role">
             <Input placeholder="admin/editor/viewer" />
@@ -111,8 +132,8 @@ const CollectionShowPage: React.FC = () => {
       </Modal>
       <Modal title="添加商品" open={addOpen} onOk={onAddProduct} onCancel={() => setAddOpen(false)}>
         <Form form={addForm} layout="vertical">
-          <Form.Item label="商品ID" name="product_id" rules={[{ required: true }]}>
-            <Input />
+          <Form.Item label="公共池商品" name="product_id" rules={[{ required: true }]}> 
+            <Select showSearch filterOption={false} onSearch={searchPoolProducts} options={poolOptions} placeholder="搜索公共池商品" />
           </Form.Item>
         </Form>
       </Modal>

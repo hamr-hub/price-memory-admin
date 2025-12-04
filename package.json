@@ -13,7 +13,7 @@
     "@refinedev/kbar": "^2.0.0",
     "@refinedev/react-router": "^2.0.0",
     "@refinedev/simple-rest": "^5.0.11",
-    "@supabase/supabase-js": "^2.39.0",
+    "@supabase/supabase-js": "^2.86.2",
     "antd": "^5.23.0",
     "graphql": "^15.5.3",
     "graphql-request": "^5.2.0",
