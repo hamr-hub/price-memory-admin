@@ -179,7 +179,7 @@ export async function sbUpdateNodeConcurrency(nodeId: number, concurrency: numbe
 export async function sbCreateNodeCommand(nodeId: number, command: string, payload?: any) {
   const { data, error } = await supabase
     .from("node_commands")
-    .insert([{ node_id: nodeId, command, payload, status: "pending", created_at: new Date().toISOString() }])
+    .insert([{ node_id: nodeId, command, payload, status: "pending", created_at: new Date().toISOString(), priority: payload?.priority ?? 0, scheduled_at: payload?.scheduled_at }])
     .select("*")
     .single();
   if (error) throw error;
@@ -188,7 +188,7 @@ export async function sbCreateNodeCommand(nodeId: number, command: string, paylo
 
 export async function sbCreateTestCrawl(nodeId: number, url: string, jobIdOrOpts?: string | { jobId?: string; timeout_ms?: number; retries?: number }) {
   const opts = typeof jobIdOrOpts === "string" ? { jobId: jobIdOrOpts } : (jobIdOrOpts || {} as any);
-  const payload = { url, job_id: opts.jobId || `${Date.now()}_${Math.random().toString(36).slice(2)}`, timeout_ms: opts.timeout_ms, retries: opts.retries } as any;
+  const payload = { url, job_id: opts.jobId || `${Date.now()}_${Math.random().toString(36).slice(2)}`, timeout_ms: opts.timeout_ms, retries: opts.retries, priority: opts?.priority ?? 0, scheduled_at: opts?.scheduled_at } as any;
   const cmd = await sbCreateNodeCommand(nodeId, "test_crawl", payload);
   return { command: cmd, jobId: payload.job_id };
 }
@@ -214,6 +214,8 @@ export async function sbCreateTestSteps(nodeId: number, url: string, steps: any[
     job_id: opts?.jobId || `${Date.now()}_${Math.random().toString(36).slice(2)}`,
     timeout_ms: opts?.timeout_ms,
     retries: opts?.retries,
+    priority: opts?.priority ?? 0,
+    scheduled_at: opts?.scheduled_at,
   };
   const cmd = await sbCreateNodeCommand(nodeId, "test_steps", payload);
   return { command: cmd, jobId: payload.job_id };
@@ -225,8 +227,16 @@ export async function sbCreateCodegen(nodeId: number, url: string, opts?: { jobI
     job_id: opts?.jobId || `${Date.now()}_${Math.random().toString(36).slice(2)}`,
     target: opts?.target || "python",
     duration_sec: opts?.duration_sec || 10,
+    priority: (opts as any)?.priority ?? 0,
+    scheduled_at: (opts as any)?.scheduled_at,
   };
   const cmd = await sbCreateNodeCommand(nodeId, "codegen", payload);
+  return { command: cmd, jobId: payload.job_id };
+}
+
+export async function sbConvertCodegen(nodeId: number, scriptUrl: string, target: "python" | "javascript", opts?: { jobId?: string }) {
+  const payload = { script_url: scriptUrl, target, job_id: opts?.jobId || `${Date.now()}_${Math.random().toString(36).slice(2)}` };
+  const cmd = await sbCreateNodeCommand(nodeId, "convert_codegen", payload);
   return { command: cmd, jobId: payload.job_id };
 }
 
@@ -287,6 +297,30 @@ export async function sbExportPrices(productIds: number[]) {
     .in("product_id", productIds);
   if (error) throw error;
   return data || [];
+}
+
+export async function sbSearchUsers(search: string) {
+  let q = supabase.from("users").select("id,username,display_name").order("id", { ascending: false });
+  if (search && search.trim()) q = q.ilike("username", `%${search.trim()}%`);
+  const { data, error } = await q.limit(20);
+  if (error) throw error;
+  return data || [];
+}
+
+export async function sbCollectionShare(collectionId: number, userId: number, role?: string) {
+  const { error } = await supabase
+    .from("collection_members")
+    .insert([{ collection_id: collectionId, user_id: userId, role }]);
+  if (error && !String(error.message).includes("duplicate key")) throw error;
+  return { collection_id: collectionId, user_id: userId, role };
+}
+
+export async function sbCollectionAddProduct(collectionId: number, productId: number) {
+  const { error } = await supabase
+    .from("collection_products")
+    .insert([{ collection_id: collectionId, product_id: productId }]);
+  if (error && !String(error.message).includes("duplicate key")) throw error;
+  return { collection_id: collectionId, product_id: productId };
 }
 
 export async function sbGetProductPrices(productId: number, startDate?: string, endDate?: string) {

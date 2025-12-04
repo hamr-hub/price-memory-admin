@@ -3,6 +3,7 @@ import { Descriptions, Table, Button, Space, Modal, Form, Input, message, AutoCo
 import React from "react";
 import { API_BASE } from "../api";
 import { dataProvider } from "../dataProvider";
+import { usingSupabase, sbSearchUsers, sbCollectionShare, sbSearchPublicPool, sbCollectionAddProduct } from "../supabaseApi";
 import { downloadBlob } from "../utils/download";
 import { useCan } from "@refinedev/core";
 import { useShow, useCustom } from "@refinedev/core";
@@ -23,14 +24,22 @@ const CollectionShowPage: React.FC = () => {
   const onShare = async () => {
     const values = await shareForm.validateFields();
     try {
-      const res: any = await (dataProvider as any).custom({ resource: "collections", method: "post", meta: { path: `/${data.id}/share` }, payload: { user_id: Number(values.user_id), role: values.role || "editor" } });
-      if (res?.data) {
-      message.success("分享成功");
-      setShareOpen(false);
-      shareForm.resetFields();
-      show?.queryResult?.refetch?.();
+      if (usingSupabase) {
+        await sbCollectionShare(Number(data.id), Number(values.user_id), values.role || "editor");
+        message.success("分享成功");
+        setShareOpen(false);
+        shareForm.resetFields();
+        show?.queryResult?.refetch?.();
       } else {
-        message.error("操作失败");
+        const res: any = await (dataProvider as any).custom({ resource: "collections", method: "post", meta: { path: `/${data.id}/share` }, payload: { user_id: Number(values.user_id), role: values.role || "editor" } });
+        if (res?.data) {
+          message.success("分享成功");
+          setShareOpen(false);
+          shareForm.resetFields();
+          show?.queryResult?.refetch?.();
+        } else {
+          message.error("操作失败");
+        }
       }
     } catch (e: any) {
       message.error(e.message || "操作失败");
@@ -40,14 +49,22 @@ const CollectionShowPage: React.FC = () => {
   const onAddProduct = async () => {
     const values = await addForm.validateFields();
     try {
-      const res: any = await (dataProvider as any).custom({ resource: "collections", method: "post", meta: { path: `/${data.id}/products` }, payload: { product_id: Number(values.product_id) } });
-      if (res?.data) {
-      message.success("已添加商品");
-      setAddOpen(false);
-      addForm.resetFields();
-      show?.queryResult?.refetch?.();
+      if (usingSupabase) {
+        await sbCollectionAddProduct(Number(data.id), Number(values.product_id));
+        message.success("已添加商品");
+        setAddOpen(false);
+        addForm.resetFields();
+        show?.queryResult?.refetch?.();
       } else {
-        message.error("操作失败");
+        const res: any = await (dataProvider as any).custom({ resource: "collections", method: "post", meta: { path: `/${data.id}/products` }, payload: { product_id: Number(values.product_id) } });
+        if (res?.data) {
+          message.success("已添加商品");
+          setAddOpen(false);
+          addForm.resetFields();
+          show?.queryResult?.refetch?.();
+        } else {
+          message.error("操作失败");
+        }
       }
     } catch (e: any) {
       message.error(e.message || "操作失败");
@@ -71,19 +88,31 @@ const CollectionShowPage: React.FC = () => {
   const searchUsers = async (q: string) => {
     if (!q) { setUserOptions([]); return; }
     try {
-      const res = await fetch(`${API_BASE}/users?search=${encodeURIComponent(q)}&page=1&size=10`);
-      const json = await res.json();
-      const items = (json.data?.items || []).map((u: any) => ({ value: String(u.id), label: `${u.username}${u.email ? ` <${u.email}>` : ""}` }));
-      setUserOptions(items);
+      if (usingSupabase) {
+        const rows = await sbSearchUsers(q);
+        const items = (rows || []).map((u: any) => ({ value: String(u.id), label: `${u.username}${u.display_name ? ` <${u.display_name}>` : ""}` }));
+        setUserOptions(items);
+      } else {
+        const res = await fetch(`${API_BASE}/users?search=${encodeURIComponent(q)}&page=1&size=10`);
+        const json = await res.json();
+        const items = (json.data?.items || []).map((u: any) => ({ value: String(u.id), label: `${u.username}${u.email ? ` <${u.email}>` : ""}` }));
+        setUserOptions(items);
+      }
     } catch {}
   };
 
   const searchPoolProducts = async (q: string) => {
     try {
-      const res = await fetch(`${API_BASE}/pools/public/products?search=${encodeURIComponent(q || "")}&page=1&size=10`);
-      const json = await res.json();
-      const items = (json.data?.items || []).map((p: any) => ({ value: String(p.id), label: `${p.name}` }));
-      setPoolOptions(items);
+      if (usingSupabase) {
+        const rows = await sbSearchPublicPool(q || "");
+        const items = (rows || []).map((p: any) => ({ value: String(p.id), label: `${p.name}` }));
+        setPoolOptions(items);
+      } else {
+        const res = await fetch(`${API_BASE}/pools/public/products?search=${encodeURIComponent(q || "")}&page=1&size=10`);
+        const json = await res.json();
+        const items = (json.data?.items || []).map((p: any) => ({ value: String(p.id), label: `${p.name}` }));
+        setPoolOptions(items);
+      }
     } catch {}
   };
 

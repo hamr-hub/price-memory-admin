@@ -1,6 +1,6 @@
 import React from "react";
 import { List } from "@refinedev/antd";
-import { Form, Input, Select, Button, Space, Table, Tag, Typography, Card, InputNumber } from "antd";
+import { Form, Input, Select, Button, Space, Table, Tag, Typography, Card, InputNumber, DatePicker } from "antd";
 import { usingSupabase, sbListRuntimeNodes, sbSubscribeRuntimeNodes, sbCreateTestCrawl, sbSubscribeCrawlLogs, sbCreateTestSteps, sbCreateCodegen } from "../supabaseApi";
 import { parseCodegenToSteps } from "../utils/parseCodegenToSteps";
 
@@ -124,7 +124,22 @@ const CrawlTestPage: React.FC = () => {
     const steps = parseCodegenToSteps(text, target === "python" ? "python" : "javascript");
     const timeout_ms = values.timeout_ms;
     const retries = values.retries;
-    const { jobId } = await sbCreateTestSteps(nodeId, url, steps, { timeout_ms, retries });
+    const priority = values.priority ?? 0;
+    const scheduled_at = values.scheduled_at ? new Date(values.scheduled_at.valueOf()).toISOString() : undefined;
+    const { jobId } = await sbCreateTestSteps(nodeId, url, steps, { timeout_ms, retries, priority, scheduled_at });
+    setJobId(jobId);
+    setLogs([]);
+    if (sub) { sub(); setSub(null); }
+    const unsubscribe = sbSubscribeCrawlLogs(jobId, (payload: any) => setLogs((prev) => [...prev, payload]));
+    setSub(() => unsubscribe);
+  };
+
+  const serverConvertScript = async (row: any) => {
+    if (!usingSupabase) return;
+    const values = await form.validateFields();
+    const nodeId = values.nodeId;
+    const target = String(row?.target || "python").toLowerCase();
+    const { jobId } = await sbConvertCodegen(nodeId, String(row.url), target === "python" ? "python" : "javascript");
     setJobId(jobId);
     setLogs([]);
     if (sub) { sub(); setSub(null); }
@@ -135,7 +150,7 @@ const CrawlTestPage: React.FC = () => {
   return (
     <List title="爬虫测试">
       <Card style={{ marginBottom: 16 }}>
-        <Form form={form} layout="inline" initialValues={{ url: "https://example.com", mode: "server", timeout_ms: 30000, retries: 0 }}>
+        <Form form={form} layout="inline" initialValues={{ url: "https://example.com", mode: "server", timeout_ms: 30000, retries: 0, priority: 0 }}>
           <Form.Item name="url" label="目标URL" rules={[{ required: true, message: "请输入URL" }]}> 
             <Input style={{ width: 360 }} placeholder="https://..." />
           </Form.Item>
@@ -165,6 +180,12 @@ const CrawlTestPage: React.FC = () => {
           </Form.Item>
           <Form.Item name="retries" label="重试次数">
             <InputNumber style={{ width: 120 }} min={0} max={5} />
+          </Form.Item>
+          <Form.Item name="priority" label="优先级">
+            <InputNumber style={{ width: 120 }} min={0} max={100} />
+          </Form.Item>
+          <Form.Item name="scheduled_at" label="计划时间">
+            <DatePicker showTime />
           </Form.Item>
           <Form.Item>
             <Button type="primary" onClick={startTest} disabled={!usingSupabase}>开始测试</Button>
@@ -257,7 +278,30 @@ const CrawlTestPage: React.FC = () => {
                     <a href={`https://trace.playwright.dev/?trace=${encodeURIComponent(u)}`} target="_blank" rel="noreferrer">在线回放</a>
                   )}
                   {r.type === "script" && (
-                    <Button size="small" onClick={() => convertScriptAndRun(r)}>转步骤并下发</Button>
+                    <>
+                      <Button size="small" onClick={() => convertScriptAndRun(r)}>转步骤并下发</Button>
+                      <Button size="small" onClick={() => serverConvertScript(r)}>服务端转换</Button>
+                    </>
+                  )}
+                  {r.type === "steps" && (
+                    <Button size="small" onClick={async () => {
+                      const res = await fetch(String(r.url));
+                      const text = await res.text();
+                      try {
+                        const j = JSON.parse(text);
+                        const values = await form.validateFields();
+                        const nodeId = values.nodeId;
+                        const url = values.url;
+                        const priority = values.priority ?? 0;
+                        const scheduled_at = values.scheduled_at ? new Date(values.scheduled_at.valueOf()).toISOString() : undefined;
+                        const timeout_ms = values.timeout_ms; const retries = values.retries;
+                        const { jobId } = await sbCreateTestSteps(nodeId, url, j.steps || [], { timeout_ms, retries, priority, scheduled_at });
+                        setJobId(jobId); setLogs([]);
+                        if (sub) { sub(); setSub(null); }
+                        const unsubscribe = sbSubscribeCrawlLogs(jobId, (payload: any) => setLogs((prev) => [...prev, payload]));
+                        setSub(() => unsubscribe);
+                      } catch {}
+                    }}>下发 steps</Button>
                   )}
                 </Space>
               )},
