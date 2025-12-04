@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { List, Button, Space, Segmented, message, Typography, Tag } from "antd";
-import { useGetIdentity, useList, useCan } from "@refinedev/core";
+import { useGetIdentity, useList, useCan, useSubscription } from "@refinedev/core";
 import { dataProvider } from "../dataProvider";
 
 type User = { id: number; username: string; display_name?: string | null };
@@ -21,6 +21,8 @@ export default function PushesPage() {
   useEffect(() => { /* 身份由 refine 管理 */ }, []);
 
   useEffect(() => { refetch(); }, [box, refetch]);
+
+  useSubscription({ channel: "pushes", types: ["created","updated","deleted"], params: { resource: { name: "pushes" } } as any, callback: () => { refetch(); } });
 
   useEffect(() => {
     if (!usingSupabase || !currentUser?.id) return;

@@ -111,6 +111,9 @@ const ProductsShow: React.FC = () => {
   }, [viewPrices, displayCurrency]);
   const [selectedAlert, setSelectedAlert] = React.useState<any | null>(null);
   const [events, setEvents] = React.useState<any[]>([]);
+  const [eventStatus, setEventStatus] = React.useState<string | undefined>(undefined);
+  const [eventPage, setEventPage] = React.useState<number>(1);
+  const [eventTotal, setEventTotal] = React.useState<number>(0);
   const [channel, setChannel] = React.useState<string>("inapp");
   const [target, setTarget] = React.useState<string>("");
   const [cooldown, setCooldown] = React.useState<number>(60);
@@ -120,11 +123,15 @@ const ProductsShow: React.FC = () => {
     setChannel(a.channel || "inapp");
     setCooldown(a.cooldown_minutes ?? 60);
     setTarget(a.target || "");
-    fetch(`${API_BASE}/alerts/${a.id}/events`).then(async (r) => {
+    const qs = new URLSearchParams({ page: String(eventPage), size: String(10) });
+    if (eventStatus) qs.set("status", eventStatus);
+    fetch(`${API_BASE}/alerts/${a.id}/events?${qs.toString()}`).then(async (r) => {
       const j = await r.json();
-      setEvents(j?.data || []);
-    }).catch(() => setEvents([]));
-  }, [selectedAlert?.id]);
+      const d = j?.data || {};
+      setEvents(d.items || []);
+      setEventTotal(d.total || 0);
+    }).catch(() => { setEvents([]); setEventTotal(0); });
+  }, [selectedAlert?.id, eventPage, eventStatus]);
   const onSaveAlert = async () => {
     if (!selectedAlert) return;
     try {
@@ -249,7 +256,20 @@ const ProductsShow: React.FC = () => {
               <InputNumber value={cooldown} onChange={(v) => setCooldown(Number(v))} min={0} />
               <Button onClick={onSaveAlert} type="primary">保存</Button>
             </Space>
-            <Table size="small" rowKey="id" dataSource={events} pagination={{ pageSize: 5 }} columns={[{ title: "时间", dataIndex: "created_at" }, { title: "价格", dataIndex: "price" }, { title: "通道", dataIndex: "channel" }, { title: "状态", dataIndex: "status" }, { title: "错误", dataIndex: "error" }]} />
+            <Space style={{ marginBottom: 8 }}>
+              <span>事件状态</span>
+              <Select allowClear value={eventStatus} onChange={setEventStatus as any} options={[{ value: "ok", label: "成功" }, { value: "failed", label: "失败" }]} style={{ width: 120 }} />
+              <Button onClick={() => {
+                const headers = ["id","created_at","price","channel","status","error"].join(",");
+                const rows = events.map((e) => [e.id, e.created_at, e.price, e.channel, e.status, (e.error || "")].map((x) => String(x)).join(","));
+                const csv = [headers, ...rows].join("\n");
+                const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+                const url = URL.createObjectURL(blob);
+                const aEl = document.createElement("a");
+                aEl.href = url; aEl.download = `alert_${selectedAlert.id}_events.csv`; aEl.click(); URL.revokeObjectURL(url);
+              }}>导出CSV</Button>
+            </Space>
+            <Table size="small" rowKey="id" dataSource={events} pagination={{ pageSize: 10, current: eventPage, total: eventTotal, onChange: setEventPage }} columns={[{ title: "时间", dataIndex: "created_at" }, { title: "价格", dataIndex: "price" }, { title: "通道", dataIndex: "channel" }, { title: "状态", dataIndex: "status" }, { title: "错误", dataIndex: "error" }]} />
           </div>
         )}
       </Card>

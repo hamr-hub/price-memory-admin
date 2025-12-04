@@ -3,19 +3,19 @@ import { test, expect } from "@playwright/test";
 const API_BASE = "http://127.0.0.1:8000/api/v1";
 
 async function createUser(request: any, username: string, display_name?: string) {
-  const res = await request.post(`${API_BASE}/users`, { data: { username, display_name } });
+  const res = await request.post(`${API_BASE}/users`, { json: { username, display_name } });
   const j = await res.json();
   return j.data;
 }
 
 async function createProduct(request: any, name: string) {
-  const res = await request.post(`${API_BASE}/products`, { data: { name, url: "http://example.com/e2e", category: "类目" } });
+  const res = await request.post(`${API_BASE}/products`, { json: { name, url: "http://example.com/e2e", category: "类目" } });
   const j = await res.json();
   return j.data;
 }
 
 async function addToPublicPool(request: any, productId: number) {
-  const res = await request.post(`${API_BASE}/pools/public/products`, { data: { product_id: productId } });
+  const res = await request.post(`${API_BASE}/pools/public/products`, { json: { product_id: productId } });
   const j = await res.json();
   return j.success;
 }

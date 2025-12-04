@@ -112,6 +112,12 @@ const CrawlTestPage: React.FC = () => {
       try { const j = JSON.parse(String(x.message || "{}")); return { ...j, created_at: x.created_at }; } catch { return { type: "unknown", url: String(x.message || ""), created_at: x.created_at }; }
     });
   }, [logs]);
+  const metrics = React.useMemo(() => {
+    const items = logs.filter((x) => x.level === "metric");
+    return items.map((x) => {
+      try { const j = JSON.parse(String(x.message || "{}")); return { ...j, created_at: x.created_at }; } catch { return { type: "unknown", created_at: x.created_at }; }
+    });
+  }, [logs]);
 
   const convertScriptAndRun = async (row: any) => {
     if (!usingSupabase) return;
@@ -305,6 +311,25 @@ const CrawlTestPage: React.FC = () => {
                   )}
                 </Space>
               )},
+            ]}
+          />
+        </Card>
+      )}
+
+      {!!metrics.length && (
+        <Card title="HAR 摘要指标" style={{ marginTop: 16 }}>
+          <Table
+            rowKey={(r) => r.created_at + (r.type || "")}
+            dataSource={metrics.filter((m: any) => m.type === "har_summary")}
+            pagination={false}
+            size="small"
+            columns={[
+              { title: "时间", dataIndex: "created_at" },
+              { title: "请求数", dataIndex: "requests" },
+              { title: "字节量", dataIndex: "bytes" },
+              { title: "状态分布", dataIndex: "status_counts", render: (v: any) => {
+                try { const entries = Object.entries(v || {}); return <Space>{entries.map(([k,val]) => <Tag key={k}>{k}:{val as any}</Tag>)}</Space>; } catch { return null; }
+              } },
             ]}
           />
         </Card>
