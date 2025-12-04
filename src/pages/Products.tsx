@@ -1,10 +1,12 @@
-import { List, useTable, CreateButton, ShowButton } from "@refinedev/antd";
+import { List, useTable, CreateButton, ShowButton, EditButton, DeleteButton } from "@refinedev/antd";
 import { Table, Space, Button } from "antd";
+import { useCan } from "@refinedev/core";
 import React from "react";
 import { API_BASE } from "../api";
 
 const ProductsPage: React.FC = () => {
   const { tableProps } = useTable({ resource: "products" });
+  const { data: canExport } = useCan({ resource: "products", action: "export" });
   const [selectedRowKeys, setSelectedRowKeys] = React.useState<any[]>([]);
   const onExport = async () => {
     if (!selectedRowKeys.length) return;
@@ -20,7 +22,7 @@ const ProductsPage: React.FC = () => {
   };
 
   return (
-    <List title="商品列表" headerButtons={<><CreateButton /><Button style={{ marginLeft: 8 }} onClick={onExport}>批量导出</Button></>}> 
+    <List title="商品列表" headerButtons={<><CreateButton />{canExport?.can && <Button style={{ marginLeft: 8 }} onClick={onExport}>批量导出</Button>}</>}> 
       <Table
         {...tableProps}
         rowKey="id"
@@ -37,6 +39,8 @@ const ProductsPage: React.FC = () => {
             render: (_, record: any) => (
               <Space>
                 <ShowButton size="small" recordItemId={record.id} />
+                <EditButton size="small" recordItemId={record.id} />
+                <DeleteButton size="small" recordItemId={record.id} resource="products" />
               </Space>
             ),
           },

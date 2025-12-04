@@ -1,7 +1,7 @@
 import { Show } from "@refinedev/antd";
 import { Descriptions, Table, Card, Space, InputNumber, Button, message, Tag } from "antd";
 import React from "react";
-import { useShow } from "@refinedev/core";
+import { useShow, useList, useCreate, useCustom } from "@refinedev/core";
 import { API_BASE } from "../api";
 import TrendChart from "../components/TrendChart";
 
@@ -10,40 +10,32 @@ const ProductsShow: React.FC = () => {
   const record = show?.queryResult?.data?.data || {};
   const [prices, setPrices] = React.useState<any[]>([]);
   const [trend, setTrend] = React.useState<any[]>([]);
-  const [alerts, setAlerts] = React.useState<any[]>([]);
+  const { data: alertsList } = useList({ resource: "alerts", filters: [{ field: "product_id", operator: "eq", value: record?.id }] });
+  const alerts = alertsList?.data ?? [];
   const [threshold, setThreshold] = React.useState<number | undefined>(undefined);
   const user = React.useMemo(() => {
     try { return JSON.parse(localStorage.getItem("user") || "null"); } catch { return null; }
   }, []);
   React.useEffect(() => {
     if (record?.id) {
-      fetch(`${API_BASE}/products/${record.id}/prices`).then(async (r) => {
-        const j = await r.json();
-        setPrices(j?.data || []);
-      });
-      fetch(`${API_BASE}/products/${record.id}/trend`).then(async (r) => {
-        const j = await r.json();
-        setTrend(j?.data?.series || []);
-      });
-      if (user?.id) {
-        fetch(`${API_BASE}/alerts?user_id=${user.id}&product_id=${record.id}`).then(async (r) => {
-          const j = await r.json();
-          setAlerts(j?.data || []);
-        });
-      }
+      (async () => {
+        const p = await fetch(`${API_BASE}/products/${record.id}/prices`).then(r => r.json());
+        setPrices(p?.data || []);
+        const t = await fetch(`${API_BASE}/products/${record.id}/trend`).then(r => r.json());
+        setTrend(t?.data?.series || []);
+      })();
     }
   }, [record?.id]);
+  const { mutateAsync: createAlert } = useCreate();
   const onCreateAlert = async () => {
-    if (!user?.id || !record?.id) return;
+    if (!user?.id || !record?.id || threshold === undefined) return;
     try {
-      const res = await fetch(`${API_BASE}/alerts`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ user_id: user.id, product_id: record.id, rule_type: "price_lte", threshold }) });
-      const j = await res.json();
-      if (j.success) {
+      const res: any = await createAlert({ resource: "alerts", values: { user_id: user.id, product_id: record.id, rule_type: "price_lte", threshold } });
+      if (res?.data) {
         message.success("创建成功");
-        setAlerts((prev) => [j.data, ...prev]);
         setThreshold(undefined);
       } else {
-        message.error(j.error?.message || "创建失败");
+        message.error("创建失败");
       }
     } catch (e: any) {
       message.error(e.message || "创建失败");

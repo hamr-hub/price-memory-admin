@@ -2,63 +2,58 @@ import { Show } from "@refinedev/antd";
 import { Descriptions, Table, Button, Space, Modal, Form, Input, message } from "antd";
 import React from "react";
 import { API_BASE } from "../api";
-import { useParams } from "react-router";
+import { useCan } from "@refinedev/core";
+import { useShow, useCustom } from "@refinedev/core";
 
 const CollectionShowPage: React.FC = () => {
-  const params = useParams();
-  const id = Number(params.id);
-  const [data, setData] = React.useState<any>({});
+  const { queryResult } = useShow({ resource: "collections" });
+  const data = (queryResult as any)?.data?.data || {};
   const [shareOpen, setShareOpen] = React.useState(false);
   const [addOpen, setAddOpen] = React.useState(false);
   const [shareForm] = Form.useForm();
   const [addForm] = Form.useForm();
+  const { data: canShare } = useCan({ resource: "collections", action: "share" });
+  const { data: canExport } = useCan({ resource: "collections", action: "export" });
 
-  const load = React.useCallback(async () => {
-    const res = await fetch(`${API_BASE}/collections/${id}`);
-    const json = await res.json();
-    setData(json.data || {});
-  }, [id]);
-
-  React.useEffect(() => { if (id) load(); }, [id, load]);
 
   const onShare = async () => {
     const values = await shareForm.validateFields();
-    const res = await fetch(`${API_BASE}/collections/${id}/share`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ user_id: Number(values.user_id), role: values.role || "editor" }),
-    });
-    const json = await res.json();
-    if (json.success) {
+    try {
+      const res = await fetch(`${API_BASE}/collections/${data.id}/share`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ user_id: Number(values.user_id), role: values.role || "editor" }) });
+      const json = await res.json();
+      if (json.success) {
       message.success("分享成功");
       setShareOpen(false);
       shareForm.resetFields();
-      load();
-    } else {
-      message.error(json.error?.message || "操作失败");
+      (queryResult as any)?.refetch?.();
+      } else {
+        message.error(json.error?.message || "操作失败");
+      }
+    } catch (e: any) {
+      message.error(e.message || "操作失败");
     }
   };
 
   const onAddProduct = async () => {
     const values = await addForm.validateFields();
-    const res = await fetch(`${API_BASE}/collections/${id}/products`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ product_id: Number(values.product_id) }),
-    });
-    const json = await res.json();
-    if (json.success) {
+    try {
+      const res = await fetch(`${API_BASE}/collections/${data.id}/products`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ product_id: Number(values.product_id) }) });
+      const json = await res.json();
+      if (json.success) {
       message.success("已添加商品");
       setAddOpen(false);
       addForm.resetFields();
-      load();
-    } else {
-      message.error(json.error?.message || "操作失败");
+      (queryResult as any)?.refetch?.();
+      } else {
+        message.error(json.error?.message || "操作失败");
+      }
+    } catch (e: any) {
+      message.error(e.message || "操作失败");
     }
   };
 
   const onExport = async () => {
-    const url = `${API_BASE}/collections/${id}/export.xlsx`;
+    const url = `${API_BASE}/collections/${data.id}/export.xlsx`;
     const res = await fetch(url);
     if (res.ok && res.headers.get("content-type")?.includes("application/vnd.openxmlformats-officedocument")) {
       const blob = await res.blob();
@@ -79,9 +74,9 @@ const CollectionShowPage: React.FC = () => {
         <Descriptions.Item label="名称">{data.name}</Descriptions.Item>
       </Descriptions>
       <Space style={{ margin: "12px 0" }}>
-        <Button type="primary" onClick={() => setShareOpen(true)}>分享成员</Button>
+        {canShare?.can && <Button type="primary" onClick={() => setShareOpen(true)}>分享成员</Button>}
         <Button onClick={() => setAddOpen(true)}>添加商品</Button>
-        <Button onClick={onExport}>导出Excel</Button>
+        {canExport?.can && <Button onClick={onExport}>导出Excel</Button>}
       </Space>
       <Table
         dataSource={data.products || []}

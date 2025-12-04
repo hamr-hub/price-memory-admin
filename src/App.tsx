@@ -1,8 +1,8 @@
-import { GitHubBanner, Refine } from "@refinedev/core";
+import { GitHubBanner, Refine, Authenticated } from "@refinedev/core";
 import { DevtoolsPanel, DevtoolsProvider } from "@refinedev/devtools";
 import { RefineKbar, RefineKbarProvider } from "@refinedev/kbar";
 
-import { useNotificationProvider } from "@refinedev/antd";
+import { useNotificationProvider, AuthPage } from "@refinedev/antd";
 import "@refinedev/antd/dist/reset.css";
 
 import routerProvider, {
@@ -28,11 +28,13 @@ import { API_BASE } from "./api";
 const restProvider = dataProvider;
 
 const authProvider: any = {
-  login: async () => {
+  login: async ({ email, password }: any) => {
+    const role = email === "admin" || email === "admin@example.com" ? "admin" : "guest";
     localStorage.setItem("token", "demo-token");
+    localStorage.setItem("role", role);
     localStorage.setItem(
       "user",
-      JSON.stringify({ id: 1, name: "演示用户", avatar: undefined })
+      JSON.stringify({ id: 1, name: email || "演示用户", avatar: undefined })
     );
     return { success: true, redirectTo: "/" };
   },
@@ -43,7 +45,7 @@ const authProvider: any = {
   },
   check: async () => {
     const authenticated = !!localStorage.getItem("token");
-    return { authenticated };
+    return { authenticated, redirectTo: authenticated ? undefined : "/login" };
   },
   getIdentity: async () => {
     const raw = localStorage.getItem("user");
@@ -55,8 +57,17 @@ const authProvider: any = {
 const accessControlProvider: AccessControlProvider = {
   can: async ({ resource, action }) => {
     const role = localStorage.getItem("role") || "guest";
-    const can = role === "admin" ? true : !(resource === "products" && action === "export");
-    return { can, reason: can ? undefined : "无导出权限" };
+    let can = true;
+    if (resource === "products" && (action === "export" || action === "delete")) {
+      can = role === "admin";
+    }
+    if (resource === "collections" && (action === "share" || action === "export")) {
+      can = role === "admin";
+    }
+    if (resource === "public-pool" && action === "select") {
+      can = !!localStorage.getItem("token");
+    }
+    return { can, reason: can ? undefined : "无权限" };
   },
 };
 
@@ -86,8 +97,15 @@ function App() {
                   projectId: "68Tn3q-k8Oh2h-ZA1WwU",
                 }}
               >
-                <ThemedLayout Header={Header}>
-                  <Routes>
+                <Routes>
+                  <Route path="/login" element={<AuthPage type="login" />} />
+                  <Route
+                    element={
+                      <Authenticated fallback={<Navigate to="/login" replace />}> 
+                        <ThemedLayout Header={Header} />
+                      </Authenticated>
+                    }
+                  >
                     <Route index element={<Navigate to="/products" replace />} />
                     <Route path="/products" element={<ProductsPage />} />
                     <Route path="/products/create" element={<ProductsCreate />} />
@@ -97,8 +115,8 @@ function App() {
                     <Route path="/collections" element={<CollectionsListPage />} />
                     <Route path="/collections/show/:id" element={<CollectionShowPage />} />
                     <Route path="/pushes" element={<PushesPage />} />
-                  </Routes>
-                </ThemedLayout>
+                  </Route>
+                </Routes>
                 <RefineKbar />
                 <UnsavedChangesNotifier />
                 <DocumentTitleHandler />

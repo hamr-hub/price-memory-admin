@@ -18,6 +18,25 @@ export const dataProvider: DataProvider = {
       const total = json.data?.total ?? data.length;
       return { data, total } as any;
     }
+    if (resource === "public-pool") {
+      const page = pagination?.current ?? 1;
+      const size = pagination?.pageSize ?? 20;
+      const json: any = await http(`${API_BASE}/pools/public/products?page=${page}&size=${size}`);
+      const data = json.data?.items || [];
+      const total = json.data?.total ?? data.length;
+      return { data, total } as any;
+    }
+    if (resource === "alerts") {
+      const raw = localStorage.getItem("user");
+      const user = raw ? JSON.parse(raw) : null;
+      const productId = params?.filters?.find((f: any) => f.field === "product_id")?.value;
+      const userId = params?.filters?.find((f: any) => f.field === "user_id")?.value ?? user?.id;
+      const q = [userId ? `user_id=${userId}` : "", productId ? `product_id=${productId}` : ""].filter(Boolean).join("&");
+      const json: any = await http(`${API_BASE}/alerts${q ? `?${q}` : ""}`);
+      const data = json.data || [];
+      const total = data.length;
+      return { data, total } as any;
+    }
     throw new Error(`Resource not supported: ${resource}`);
   },
   getOne: async (params: any) => {
@@ -42,4 +61,16 @@ export const dataProvider: DataProvider = {
   },
   getMany: async () => ({ data: [] } as any),
   getApiUrl: () => API_BASE,
+  custom: async ({ url, method, headers, meta, payload, query, resource }: any) => {
+    const fullUrl = url || `${API_BASE}/${resource}${meta?.path || ""}`;
+    const q = query ? `?${new URLSearchParams(query as any).toString()}` : "";
+    const res = await fetch(`${fullUrl}${q}`, {
+      method: method || "GET",
+      headers: { "Content-Type": "application/json", ...(headers || {}) },
+      body: payload ? JSON.stringify(payload) : undefined,
+    });
+    if (!res.ok) throw new Error(await res.text());
+    const text = await res.text();
+    try { const j = JSON.parse(text); return { data: j.data ?? j } as any; } catch { return { data: text } as any; }
+  },
 } as any;
