@@ -14,6 +14,7 @@ import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { ThemedLayout } from "@refinedev/antd";
 import type { AccessControlProvider, LiveProvider } from "@refinedev/core";
 import { dataProvider } from "./dataProvider";
+import { supabaseDataProvider } from "./supabaseDataProvider";
 import supabaseAuthProvider from "./supabaseAuth";
 import { hasSupabase } from "./supabase";
 import { ColorModeContextProvider } from "./contexts/color-mode";
@@ -31,7 +32,7 @@ import NodesPage from "./pages/Nodes";
 import CrawlTestPage from "./pages/CrawlTest";
 import SettingsSitesRatesPage from "./pages/SettingsSitesRates";
 import { API_BASE, api } from "./api";
-const restProvider = dataProvider;
+const restProvider = hasSupabase ? supabaseDataProvider : dataProvider;
 
 const localAuthProvider: any = {
   login: async ({ email }: any) => {
@@ -82,8 +83,28 @@ const accessControlProvider: AccessControlProvider = {
     const perms = await fetchPermissions();
     const key = `${resource}:${action}`;
     let can = !!perms[key];
+    // 补充细粒度规则
     if (!can && resource === "public-pool" && action === "select") {
       can = !!localStorage.getItem("token");
+    }
+    if (!can && resource === "collections" && (action === "share" || action === "export")) {
+      const raw = localStorage.getItem("user");
+      const userId = raw ? (JSON.parse(raw) || {}).id : undefined;
+      const id = params?.id;
+      if (id && userId) {
+        try {
+          const res = await fetch(`${API_BASE}/collections/${id}`);
+          const j = await res.json();
+          can = j?.data?.owner_user_id === userId;
+        } catch {}
+      }
+    }
+    if (!can && resource === "pushes" && action === "update") {
+      const raw = localStorage.getItem("user");
+      const userId = raw ? (JSON.parse(raw) || {}).id : undefined;
+      const box = params?.box;
+      const itemRecipientId = params?.itemRecipientId;
+      can = !!userId && box === "inbox" && userId === itemRecipientId;
     }
     return { can, reason: can ? undefined : "无权限" };
   },

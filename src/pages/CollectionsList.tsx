@@ -1,5 +1,5 @@
 import { List } from "@refinedev/antd";
-import { Table, Button, Modal, Form, Input, message } from "antd";
+import { Table, Button, Modal, Form, Input, message, Space } from "antd";
 import { useTable, useCreate, useNavigation, useGetIdentity } from "@refinedev/core";
 import React from "react";
 
@@ -9,7 +9,7 @@ const CollectionsListPage: React.FC = () => {
   const { data: identity } = useGetIdentity<any>();
   const { show } = useNavigation();
   const table: any = useTable({ resource: "collections", pagination: { pageSize: 20 } });
-  const { tableProps, refetch } = table;
+  const { tableProps, refetch, setFilters } = table;
 
   React.useEffect(() => { /* 数据通过 useTable 加载 */ }, []);
 
@@ -28,7 +28,12 @@ const CollectionsListPage: React.FC = () => {
   };
 
   return (
-    <List title="我的集合" headerButtons={<Button type="primary" onClick={() => setOpen(true)}>新建集合</Button>}>
+    <List title="我的集合" headerButtons={
+      <Space>
+        <Input.Search placeholder="搜索集合名称" allowClear onSearch={(v) => setFilters?.([{ field: "search", operator: "contains", value: v }])} />
+        <Button type="primary" onClick={() => setOpen(true)}>新建集合</Button>
+      </Space>
+    }>
       <Table
         {...tableProps}
         rowKey="id"

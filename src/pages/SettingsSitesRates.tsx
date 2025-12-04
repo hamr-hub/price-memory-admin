@@ -8,6 +8,9 @@ const SettingsSitesRatesPage: React.FC = () => {
   const [sites, setSites] = React.useState<any[]>([]);
   const [rateForm] = Form.useForm();
   const [siteForm] = Form.useForm();
+  const [ratesPage, setRatesPage] = React.useState<number>(1);
+  const [sitesPage, setSitesPage] = React.useState<number>(1);
+  const [pageSize] = React.useState<number>(10);
 
   const loadRates = async () => {
     const { data, error } = await supabase.from("exchange_rates").select("currency,rate_to_usd,updated_at").order("currency", { ascending: true });
@@ -64,8 +67,14 @@ const SettingsSitesRatesPage: React.FC = () => {
             { title: "币种", dataIndex: "currency" },
             { title: "对USD汇率", dataIndex: "rate_to_usd" },
             { title: "更新时间", dataIndex: "updated_at" },
-            { title: "操作", dataIndex: "actions", render: (_: any, r: any) => (<Space><Button danger size="small" onClick={() => onDeleteRate(r.currency)}>删除</Button></Space>) },
+            { title: "操作", dataIndex: "actions", render: (_: any, r: any) => (
+              <Space>
+                <Button size="small" onClick={() => rateForm.setFieldsValue({ currency: r.currency, rate_to_usd: r.rate_to_usd })}>编辑</Button>
+                <Button danger size="small" onClick={() => onDeleteRate(r.currency)}>删除</Button>
+              </Space>
+            ) },
           ]}
+          pagination={{ current: ratesPage, pageSize, onChange: setRatesPage }}
         />
       </List>
 
@@ -86,8 +95,14 @@ const SettingsSitesRatesPage: React.FC = () => {
             { title: "名称", dataIndex: "name" },
             { title: "区域", dataIndex: "region_code" },
             { title: "币种", dataIndex: "currency" },
-            { title: "操作", dataIndex: "actions", render: (_: any, r: any) => (<Space><Button danger size="small" onClick={() => onDeleteSite(r.id)}>删除</Button></Space>) },
+            { title: "操作", dataIndex: "actions", render: (_: any, r: any) => (
+              <Space>
+                <Button size="small" onClick={() => siteForm.setFieldsValue({ domain: r.domain, name: r.name, region_code: r.region_code, currency: r.currency })}>编辑</Button>
+                <Button danger size="small" onClick={() => onDeleteSite(r.id)}>删除</Button>
+              </Space>
+            ) },
           ]}
+          pagination={{ current: sitesPage, pageSize, onChange: setSitesPage }}
         />
       </List>
     </div>
@@ -95,4 +110,3 @@ const SettingsSitesRatesPage: React.FC = () => {
 };
 
 export default SettingsSitesRatesPage;
-

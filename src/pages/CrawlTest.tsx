@@ -2,6 +2,7 @@ import React from "react";
 import { List } from "@refinedev/antd";
 import { Form, Input, Select, Button, Space, Table, Tag, Typography, Card, InputNumber } from "antd";
 import { usingSupabase, sbListRuntimeNodes, sbSubscribeRuntimeNodes, sbCreateTestCrawl, sbSubscribeCrawlLogs, sbCreateTestSteps, sbCreateCodegen } from "../supabaseApi";
+import { parseCodegenToSteps } from "../utils/parseCodegenToSteps";
 
 const { Paragraph } = Typography;
 
@@ -111,6 +112,25 @@ const CrawlTestPage: React.FC = () => {
       try { const j = JSON.parse(String(x.message || "{}")); return { ...j, created_at: x.created_at }; } catch { return { type: "unknown", url: String(x.message || ""), created_at: x.created_at }; }
     });
   }, [logs]);
+
+  const convertScriptAndRun = async (row: any) => {
+    if (!usingSupabase) return;
+    const values = await form.validateFields();
+    const nodeId = values.nodeId;
+    const url = values.url;
+    const target = String(row?.target || "python").toLowerCase();
+    const res = await fetch(String(row.url));
+    const text = await res.text();
+    const steps = parseCodegenToSteps(text, target === "python" ? "python" : "javascript");
+    const timeout_ms = values.timeout_ms;
+    const retries = values.retries;
+    const { jobId } = await sbCreateTestSteps(nodeId, url, steps, { timeout_ms, retries });
+    setJobId(jobId);
+    setLogs([]);
+    if (sub) { sub(); setSub(null); }
+    const unsubscribe = sbSubscribeCrawlLogs(jobId, (payload: any) => setLogs((prev) => [...prev, payload]));
+    setSub(() => unsubscribe);
+  };
 
   return (
     <List title="爬虫测试">
@@ -235,6 +255,9 @@ const CrawlTestPage: React.FC = () => {
                   <a href={u} target="_blank" rel="noreferrer">下载</a>
                   {r.type === "trace" && (
                     <a href={`https://trace.playwright.dev/?trace=${encodeURIComponent(u)}`} target="_blank" rel="noreferrer">在线回放</a>
+                  )}
+                  {r.type === "script" && (
+                    <Button size="small" onClick={() => convertScriptAndRun(r)}>转步骤并下发</Button>
                   )}
                 </Space>
               )},

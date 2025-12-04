@@ -13,6 +13,8 @@ const ProductsPage: React.FC = () => {
   const { data: canDelete } = useCan({ resource: "products", action: "delete" });
   const [selectedRowKeys, setSelectedRowKeys] = React.useState<any[]>([]);
   const [exportIds, setExportIds] = React.useState<string | null>(null);
+  const [exportRange, setExportRange] = React.useState<any[] | null>(null);
+  const [exportXlsxIds, setExportXlsxIds] = React.useState<string | null>(null);
   const [form] = Form.useForm();
   const onSearch = (values: any) => {
     const filters: any[] = [];
@@ -27,14 +29,35 @@ const ProductsPage: React.FC = () => {
     setFilters(filters, "replace");
   };
   useSubscription({ channel: "products", types: ["created","updated","deleted"], params: { resource: { name: "products" } } as any, callback: () => { tableQueryResult?.refetch?.(); } });
-  const exportQuery: any = useCustom({ url: exportIds ? `${API_BASE}/export?product_ids=${exportIds}` : "", method: "get", meta: { responseType: "blob" }, queryOptions: { enabled: !!exportIds } });
+  const exportQuery: any = useCustom({
+    url: exportIds ? `${API_BASE}/export/zip` : "",
+    method: "get",
+    meta: { responseType: "blob" },
+    query: (() => {
+      if (!exportIds) return undefined as any;
+      const params: any = { product_ids: exportIds };
+      const r = exportRange;
+      if (r && r[0]) params.start_date = r[0].format("YYYY-MM-DD");
+      if (r && r[1]) params.end_date = r[1].format("YYYY-MM-DD");
+      return params;
+    })(),
+    queryOptions: { enabled: !!exportIds },
+  });
+  const exportXlsxQuery: any = useCustom({ url: exportXlsxIds ? `${API_BASE}/export.xlsx?product_ids=${exportXlsxIds}` : "", method: "get", meta: { responseType: "blob" }, queryOptions: { enabled: !!exportXlsxIds } });
   React.useEffect(() => {
     const blob: Blob | undefined = exportQuery?.data?.data;
     if (blob) {
-      downloadBlob(blob, "products_export.csv");
+      downloadBlob(blob, "products_export.zip");
       setExportIds(null);
     }
   }, [exportQuery?.data?.data]);
+  React.useEffect(() => {
+    const blob: Blob | undefined = exportXlsxQuery?.data?.data;
+    if (blob) {
+      downloadBlob(blob, "products_export.xlsx");
+      setExportXlsxIds(null);
+    }
+  }, [exportXlsxQuery?.data?.data]);
   const onExport = async () => {
     if (!selectedRowKeys.length) return;
     if (usingSupabase) {
@@ -52,17 +75,38 @@ const ProductsPage: React.FC = () => {
     }
   };
 
+  const onExportXlsx = async () => {
+    if (!selectedRowKeys.length) return;
+    setExportXlsxIds(selectedRowKeys.join(","));
+  };
+
   const exportSingle = async (id: number) => {
     try {
       if (usingSupabase) {
-        const rows = await sbExportPrices([id]);
         const header = ["product_id","product_name","url","category","price_id","price","created_at"]; 
-        const lines = [header.join(","), ...rows.map((r: any) => header.map((h) => JSON.stringify(r[h] ?? "")).join(","))];
+        const lines: string[] = [header.join(",")];
+        const r = exportRange;
+        const sd = r && r[0] ? r[0].format("YYYY-MM-DD") : undefined;
+        const ed = r && r[1] ? r[1].format("YYYY-MM-DD") : undefined;
+        const prices = await (await import("../supabaseApi")).sbGetProductPrices(id, sd, ed);
+        const src: any[] = (tableProps?.dataSource as any[]) || [];
+        const p = src.find((x) => x.id === id) || {};
+        for (const row of prices) {
+          const out = { product_id: id, product_name: p.name, url: p.url, category: p.category, price_id: row.id, price: row.price, created_at: row.created_at } as any;
+          lines.push(header.map((h) => JSON.stringify(out[h] ?? "")).join(","));
+        }
         const blob = new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8" });
         downloadBlob(blob, `product_${id}_prices.csv`);
       } else {
         const apiKey = getApiKey();
-        const res = await fetch(`${API_BASE}/products/${id}/export`, { headers: { ...(apiKey ? { "X-API-Key": apiKey } : {}) } });
+        const r = exportRange;
+        const sd = r && r[0] ? r[0].format("YYYY-MM-DD") : undefined;
+        const ed = r && r[1] ? r[1].format("YYYY-MM-DD") : undefined;
+        const params = new URLSearchParams();
+        if (sd) params.set("start_date", sd);
+        if (ed) params.set("end_date", ed);
+        const url = `${API_BASE}/products/${id}/export${params.toString() ? `?${params.toString()}` : ""}`;
+        const res = await fetch(url, { headers: { ...(apiKey ? { "X-API-Key": apiKey } : {}) } });
         if (!res.ok) throw new Error(await res.text());
         const blob = await res.blob();
         const dispo = res.headers.get("content-disposition") || "product_prices.csv";
@@ -75,7 +119,7 @@ const ProductsPage: React.FC = () => {
   };
 
   return (
-    <List title="商品列表" headerButtons={<><CreateButton />{canExport?.can && <Button style={{ marginLeft: 8 }} onClick={onExport}>批量导出</Button>}</>}> 
+    <List title="商品列表" headerButtons={<><CreateButton />{canExport?.can && <><DatePicker.RangePicker style={{ marginLeft: 8 }} onChange={(v) => setExportRange(v as any)} /><Button style={{ marginLeft: 8 }} onClick={onExport}>ZIP批量打包</Button><Button style={{ marginLeft: 8 }} onClick={onExportXlsx}>导出Excel</Button></>}</>}> 
       <Form form={form} layout="inline" onFinish={onSearch} style={{ marginBottom: 16 }}>
         <Form.Item name="name" label="名称"><Input allowClear placeholder="搜索名称" /></Form.Item>
         <Form.Item name="url" label="链接"><Input allowClear placeholder="搜索链接" /></Form.Item>

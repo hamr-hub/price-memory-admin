@@ -24,6 +24,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.25.0",
+    "@playwright/test": "^1.57.0",
     "@types/node": "^20",
     "@types/react": "^19.1.0",
     "@types/react-dom": "^19.1.0",
@@ -45,6 +46,8 @@
     "build": "tsc && refine build",
     "start": "refine start",
     "test": "vitest run --coverage",
+    "preview": "vite build && vite preview --port 5174",
+    "test:e2e": "playwright test",
     "refine": "refine"
   },
   "browserslist": {

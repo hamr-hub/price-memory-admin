@@ -1,4 +1,13 @@
 export const API_BASE = (import.meta as any).env?.VITE_API_URL || "http://127.0.0.1:8000/api/v1";
+export const FILTER_PARAM_MAP: Record<string, string> = {
+  // 在此按需覆盖映射，如后端采用不同参数名：
+  // 前端字段: 后端查询参数名
+  // updated_from: "updated_from",
+  // updated_to: "updated_to",
+  // price_min: "price_min",
+  // price_max: "price_max",
+};
+export const CATEGORIES_ENDPOINT = "/categories";
 
 export function getApiKey(): string | undefined {
   try { return localStorage.getItem("API_KEY") || undefined; } catch { return undefined; }
@@ -77,6 +86,14 @@ export const api = {
   },
   async executeTask(taskId: number) {
     const j: any = await http(`${API_BASE}/spider/tasks/${taskId}/execute`, { method: "POST" });
+    return j.data;
+  },
+  async updateAlertTarget(alertId: number, target: string) {
+    const j: any = await http(`${API_BASE}/alerts/${alertId}/target?target=${encodeURIComponent(target)}`, { method: "POST" });
+    return j.data;
+  },
+  async retryAlertEvent(eventId: number) {
+    const j: any = await http(`${API_BASE}/alert_events/${eventId}/retry`, { method: "POST" });
     return j.data;
   },
 };

@@ -1,12 +1,12 @@
 import { Create, useForm } from "@refinedev/antd";
 import { Form, Input, InputNumber, Select } from "antd";
 import { useCustom } from "@refinedev/core";
-import { API_BASE } from "../api";
+import { API_BASE, CATEGORIES_ENDPOINT } from "../api";
 import React from "react";
 
 const ProductsCreate: React.FC = () => {
   const { formProps, saveButtonProps } = useForm({ resource: "products" });
-  const { data: categoriesRes } = useCustom<{ data: Array<{ id: string; name: string }> }>({ url: `${API_BASE}/categories`, method: "get" });
+  const { data: categoriesRes } = useCustom<{ data: Array<{ id: string; name: string }> }>({ url: `${API_BASE}${CATEGORIES_ENDPOINT}`, method: "get" });
   const categoryOptions = (categoriesRes?.data || []).map((c) => ({ label: c.name, value: c.name }));
   return (
     <Create saveButtonProps={saveButtonProps} title="新建商品">

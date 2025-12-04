@@ -1,7 +1,7 @@
 import React from "react";
 import { List } from "@refinedev/antd";
-import { Table, Space, Button, Tag } from "antd";
-import { usingSupabase, sbListRuntimeNodes, sbSubscribeRuntimeNodes, sbCreateNodeCommand } from "../supabaseApi";
+import { Table, Space, Button, Tag, InputNumber } from "antd";
+import { usingSupabase, sbListRuntimeNodes, sbSubscribeRuntimeNodes, sbCreateNodeCommand, sbUpdateNodeConcurrency } from "../supabaseApi";
 
 const NodesPage: React.FC = () => {
   const [items, setItems] = React.useState<any[]>([]);
@@ -68,6 +68,12 @@ const NodesPage: React.FC = () => {
           { title: "执行中", dataIndex: "current_tasks" },
           { title: "队列", dataIndex: "queue_size" },
           { title: "累计完成", dataIndex: "total_completed" },
+          { title: "并发", dataIndex: "concurrency", render: (v: number, r: any) => (
+            <Space>
+              <InputNumber min={1} max={20} defaultValue={v || 1} onChange={(val) => { r._nextConcurrency = Number(val || 1); }} />
+              <Button size="small" onClick={async () => { if (!usingSupabase) return; const c = r._nextConcurrency ?? v ?? 1; await sbUpdateNodeConcurrency(r.id, c); }}>设置</Button>
+            </Space>
+          ) },
           { title: "最后心跳", dataIndex: "last_seen" },
           {
             title: "操作",

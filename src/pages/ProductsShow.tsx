@@ -5,6 +5,7 @@ import { useShow, useList, useCreate, useCustom } from "@refinedev/core";
 import { API_BASE } from "../api";
 import TrendChart from "../components/TrendChart";
 import { usingSupabase, sbUploadImage, sbGetPublicUrl, sbGetProductStats, sbGetProductPrices, sbGetTrendDailyOHLC, sbGetTrendHourlyOHLC } from "../supabaseApi";
+import { convertCurrency } from "../utils/currency";
 
 const ProductsShow: React.FC = () => {
   const show: any = useShow({ resource: "products" });
@@ -42,14 +43,17 @@ const ProductsShow: React.FC = () => {
   }
   const prevTrendQuery: any = useCustom({ url: record?.id && comparePrev && !usingSupabase ? `${API_BASE}/products/${record.id}/trend?granularity=${granularity}${prevQs.length ? `&${prevQs.join("&")}` : ""}` : "", method: "get", queryOptions: { enabled: !!record?.id && !!comparePrev && !usingSupabase } });
   const alertsQuery: any = useList({ resource: "alerts", filters: [{ field: "product_id", operator: "eq", value: record?.id }] });
-  const alerts = alertsList?.data ?? [];
+  const alerts = alertsQuery?.data?.data ?? [];
   const [threshold, setThreshold] = React.useState<number | undefined>(undefined);
+  const [taskPriority, setTaskPriority] = React.useState<number>(0);
   const user = React.useMemo(() => {
     try { return JSON.parse(localStorage.getItem("user") || "null"); } catch { return null; }
   }, []);
   const [prices, setPrices] = React.useState<any[]>([]);
   const [trend, setTrend] = React.useState<any[]>([]);
   const [prevTrend, setPrevTrend] = React.useState<any[]>([]);
+  const [displayCurrency, setDisplayCurrency] = React.useState<string>(() => localStorage.getItem("display_currency") || "USD");
+  const [convertedPrices, setConvertedPrices] = React.useState<any[]>([]);
   React.useEffect(() => {
     const load = async () => {
       const id = record?.id;
@@ -83,6 +87,28 @@ const ProductsShow: React.FC = () => {
   const apiPrices = pricesQuery?.data?.data || [];
   const apiTrend = trendQuery?.data?.data?.series || [];
   const apiPrevTrend = prevTrendQuery?.data?.data?.series || [];
+  const viewPrices = usingSupabase ? prices : apiPrices;
+  const viewTrend = usingSupabase ? trend : apiTrend;
+  const viewPrevTrend = usingSupabase ? prevTrend : apiPrevTrend;
+  React.useEffect(() => {
+    let mounted = true;
+    const run = async () => {
+      const arr = viewPrices;
+      if (!arr?.length) { setConvertedPrices([]); return; }
+      const outs = await Promise.all(arr.map(async (p: any) => {
+        const cur = p.currency || "USD";
+        try {
+          const v = await convertCurrency(Number(p.price), cur, displayCurrency);
+          return { ...p, converted_price: v };
+        } catch {
+          return { ...p, converted_price: null };
+        }
+      }));
+      if (mounted) setConvertedPrices(outs);
+    };
+    run();
+    return () => { mounted = false; };
+  }, [viewPrices, displayCurrency]);
   const [selectedAlert, setSelectedAlert] = React.useState<any | null>(null);
   const [events, setEvents] = React.useState<any[]>([]);
   const [channel, setChannel] = React.useState<string>("inapp");
@@ -132,6 +158,19 @@ const ProductsShow: React.FC = () => {
       message.error(e.message || "创建失败");
     }
   };
+  const onCreateTask = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/spider/tasks`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ product_id: record.id, priority: taskPriority }) });
+      const j = await res.json();
+      if (j?.success) {
+        message.success(`任务已创建: ${j.data.id}`);
+      } else {
+        message.error(j?.error?.message || "创建失败");
+      }
+    } catch (e: any) {
+      message.error(e.message || "创建失败");
+    }
+  };
   return (
     <Show title="商品详情">
       <Descriptions bordered column={1} size="small">
@@ -162,6 +201,8 @@ const ProductsShow: React.FC = () => {
       </Descriptions>
       <Card size="small" style={{ marginTop: 12 }} title="价格趋势">
         <Space style={{ marginBottom: 8 }}>
+          <span>显示币种</span>
+          <Select value={displayCurrency} onChange={(v) => { setDisplayCurrency(v); localStorage.setItem("display_currency", v); }} options={["USD","EUR","GBP","JPY","CNY","CAD","AUD","INR","CHF"].map((c) => ({ value: c, label: c }))} style={{ width: 120 }} />
           <span>粒度</span>
           <Select value={granularity} onChange={setGranularity} options={[{ value: "daily", label: "按日" }, { value: "hourly", label: "按小时" }]} style={{ width: 120 }} />
           <span>指标</span>
@@ -169,8 +210,12 @@ const ProductsShow: React.FC = () => {
           <span>区间</span>
           <DatePicker.RangePicker value={range} onChange={setRange} />
           <Button onClick={() => setComparePrev((v) => !v)}>{comparePrev ? "取消对比" : "对比上一区间"}</Button>
+          <span>均线窗口</span>
+          <Select defaultValue={"10"} options={[{ value: "5", label: "5" }, { value: "10", label: "10" }, { value: "20", label: "20" }]} style={{ width: 80 }} onChange={(v) => (window._pm_ma = Number(v)) as any} />
+          <span>布林带</span>
+          <Select defaultValue={"on"} options={[{ value: "off", label: "关" }, { value: "on", label: "开" }]} style={{ width: 80 }} onChange={(v) => (window._pm_bb = v === "on") as any} />
         </Space>
-        <TrendChart data={trend} metric={metric as any} overlayData={prevTrend} />
+        <TrendChart data={viewTrend} metric={metric as any} overlayData={viewPrevTrend} maWindow={(window as any)._pm_ma || 10} showBollinger={(window as any)._pm_bb ?? true} />
       </Card>
       <Card size="small" style={{ marginTop: 12 }} title="价格告警">
         <Space style={{ marginBottom: 8 }}>
@@ -208,16 +253,25 @@ const ProductsShow: React.FC = () => {
           </div>
         )}
       </Card>
+      <Card size="small" style={{ marginTop: 12 }} title="采集任务">
+        <Space>
+          <span>优先级</span>
+          <InputNumber value={taskPriority} min={0} onChange={(v) => setTaskPriority(Number(v || 0))} />
+          <Button type="primary" onClick={onCreateTask} disabled={!record?.id}>创建任务</Button>
+        </Space>
+      </Card>
       <Table
         size="small"
         style={{ marginTop: 12 }}
         rowKey="id"
-        dataSource={prices}
-        loading={pricesQuery?.isLoading}
+        dataSource={convertedPrices.length ? convertedPrices : viewPrices}
+        loading={pricesQuery?.isLoading && !usingSupabase}
         pagination={{ pageSize: 10 }}
         columns={[
           { title: "价格ID", dataIndex: "id" },
-          { title: "价格", dataIndex: "price" },
+          { title: "原价", dataIndex: "price" },
+          { title: "币种", dataIndex: "currency" },
+          { title: "转换价", dataIndex: "converted_price", render: (v: any) => v !== null && v !== undefined ? `${displayCurrency} ${Number(v).toFixed(2)}` : "-" },
           { title: "时间", dataIndex: "created_at" },
         ]}
       />

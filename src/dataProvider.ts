@@ -1,5 +1,5 @@
 import type { DataProvider, BaseRecord } from "@refinedev/core";
-import { API_BASE, getApiKey } from "./api";
+import { API_BASE, getApiKey, FILTER_PARAM_MAP } from "./api";
 
 async function http<T>(url: string, init?: RequestInit): Promise<T> {
   const apiKey = getApiKey();
@@ -9,37 +9,26 @@ async function http<T>(url: string, init?: RequestInit): Promise<T> {
   return res.json() as Promise<T>;
 }
 
+async function gql<T>(query: string, variables?: any): Promise<T> {
+  const apiKey = getApiKey();
+  const headers = { "Content-Type": "application/json", ...(apiKey ? { "X-API-Key": apiKey } : {}) } as Record<string, string>;
+  const res = await fetch(`${API_BASE}/graphql`, { method: "POST", headers, body: JSON.stringify({ query, variables }) });
+  const text = await res.text();
+  if (!res.ok) throw new Error(text || res.statusText);
+  const j = JSON.parse(text);
+  return j.data as T;
+}
+
 export const dataProvider: DataProvider = {
   getList: async (params: any) => {
     const { resource, pagination, filters } = params;
     if (resource === "products") {
       const page = pagination?.current ?? 1;
       const size = pagination?.pageSize ?? 20;
-      const q: string[] = [];
-      if (Array.isArray(filters)) {
-        for (const f of filters) {
-          if (f?.value === undefined || f?.value === null || f?.value === "") continue;
-          const field: string = String(f.field);
-          const op: string = String(f.operator || "eq");
-          const val = encodeURIComponent(
-            typeof f.value === "string" ? f.value : typeof f.value === "number" ? String(f.value) : (f.value?.toISOString?.() || String(f.value))
-          );
-          if (op === "contains") {
-            q.push(`${field}_like=${val}`);
-            continue;
-          }
-          if (field === "updated_from" || field === "updated_to" || field === "price_min" || field === "price_max") {
-            q.push(`${field}=${val}`);
-            continue;
-          }
-          q.push(`${field}=${val}`);
-        }
-      }
-      const query = [`page=${page}`, `size=${size}`, ...q].join("&");
-      const json: any = await http(`${API_BASE}/products?${query}`);
-      const data = json.data?.items || [];
-      const total = json.data?.total ?? data.length;
-      return { data, total };
+      const data: any = await gql(`query($page:Int,$size:Int){ products(page:$page,size:$size){ items total page size } }`, { page, size });
+      const items = data?.products?.items || [];
+      const total = data?.products?.total ?? items.length;
+      return { data: items, total };
     }
     if (resource === "public-pool") {
       const page = pagination?.current ?? 1;
@@ -68,7 +57,21 @@ export const dataProvider: DataProvider = {
     if (resource === "collections") {
       const raw = localStorage.getItem("user");
       const user = raw ? JSON.parse(raw) : null;
-      const json: any = await http(`${API_BASE}/users/${user?.id}/collections`);
+      const page = pagination?.current ?? 1;
+      const size = pagination?.pageSize ?? 20;
+      const search = params?.filters?.find((f: any) => f.field === "search")?.value || "";
+      const qs = new URLSearchParams({ page: String(page), size: String(size) });
+      if (search) qs.set("search", String(search));
+      const json: any = await http(`${API_BASE}/users/${user?.id}/collections?${qs.toString()}`);
+      const data = json.data?.items || [];
+      const total = json.data?.total ?? data.length;
+      return { data, total };
+    }
+    if (resource === "pushes") {
+      const userId = params?.filters?.find((f: any) => f.field === "user_id")?.value;
+      const box = params?.filters?.find((f: any) => f.field === "box")?.value;
+      if (!userId) throw new Error("user_id is required for pushes list");
+      const json: any = await http(`${API_BASE}/users/${userId}/pushes${box ? `?box=${box}` : ""}`);
       const data = json.data || [];
       const total = data.length;
       return { data, total };
@@ -77,16 +80,28 @@ export const dataProvider: DataProvider = {
   },
   getOne: async (params: any) => {
     const { resource, id } = params;
+    if (resource === "products") {
+      const data: any = await gql(`query($id:Int!){ product(id:$id){ id name url category last_updated stats{ min_price max_price avg_price count } } }`, { id });
+      return { data: data?.product as BaseRecord };
+    }
     const json: any = await http(`${API_BASE}/${resource}/${id}`);
     return { data: json.data as BaseRecord };
   },
   create: async (params: any) => {
     const { resource, variables } = params;
+    if (resource === "products") {
+      const data: any = await gql(`mutation($input:ProductInput){ createProduct(input:$input){ id name url category last_updated } }`, { input: variables });
+      return { data: data?.createProduct as BaseRecord };
+    }
     const json: any = await http(`${API_BASE}/${resource}`, { method: "POST", body: JSON.stringify(variables) });
     return { data: json.data as BaseRecord };
   },
   update: async (params: any) => {
     const { resource, id, variables } = params;
+    if (resource === "products") {
+      const data: any = await gql(`mutation($id:Int!,$input:ProductUpdate){ updateProduct(id:$id,input:$input){ id name url category last_updated } }`, { id, input: variables });
+      return { data: data?.updateProduct as BaseRecord };
+    }
     const res = await fetch(`${API_BASE}/${resource}/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(variables) });
     const text = await res.text();
     if (!res.ok) throw new Error(text || "UPDATE_FAILED");
@@ -95,6 +110,10 @@ export const dataProvider: DataProvider = {
   },
   deleteOne: async (params: any) => {
     const { resource, id } = params;
+    if (resource === "products") {
+      const data: any = await gql(`mutation($id:Int!){ deleteProduct(id:$id){ id } }`, { id });
+      return { data: data?.deleteProduct as BaseRecord };
+    }
     const res = await fetch(`${API_BASE}/${resource}/${id}`, { method: "DELETE" });
     const text = await res.text();
     if (!res.ok) throw new Error(text || "DELETE_FAILED");
@@ -103,6 +122,11 @@ export const dataProvider: DataProvider = {
   },
   getMany: async (params: any) => {
     const { resource, ids } = params;
+    if (resource === "products") {
+      const data: any = await gql(`query($ids:[Int!]){ getManyProducts(ids:$ids){ items } }`, { ids });
+      const items = data?.getManyProducts?.items || [];
+      return { data: items as BaseRecord[] };
+    }
     const results: BaseRecord[] = [];
     for (const id of ids) {
       try {

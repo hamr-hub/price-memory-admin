@@ -1,78 +1,26 @@
 import { useEffect, useMemo, useState } from "react";
 import { List, Button, Space, Segmented, message, Typography, Tag } from "antd";
-import { usingSupabase, sbListUsers, sbEnsureUser, sbListPushes, sbUpdatePushStatus, sbAddFollow, sbSubscribePushesUpdate, sbSubscribeFollowsInsert } from "../supabaseApi";
-import { api } from "../api";
+import { useGetIdentity, useList, useCan } from "@refinedev/core";
+import { dataProvider } from "../dataProvider";
 
 type User = { id: number; username: string; display_name?: string | null };
 type Push = { id: number; sender_id: number; recipient_id: number; product_id: number; message?: string | null; status: string; created_at?: string; updated_at?: string };
 
 export default function PushesPage() {
-  const [currentUser, setCurrentUser] = useState<User | null>(null);
-  const [users, setUsers] = useState<User[]>([]);
-  const [items, setItems] = useState<Push[]>([]);
-  const [loading, setLoading] = useState(false);
+  const { data: identity } = useGetIdentity<User>();
   const [box, setBox] = useState<"inbox" | "outbox">("inbox");
+  const { queryResult, refetch } = useList<Push>({ resource: "pushes", filters: [
+    { field: "user_id", operator: "eq", value: identity?.id },
+    { field: "box", operator: "eq", value: box },
+  ], queryOptions: { enabled: !!identity?.id } });
+  const items = (queryResult as any)?.data?.data || [];
+  const loading = (queryResult as any)?.isLoading;
 
   const userLabel = useMemo(() => (u: User) => u.display_name || u.username, []);
 
-  useEffect(() => {
-    const init = async () => {
-      setLoading(true);
-      try {
-        if (usingSupabase) {
-          const usersList = await sbListUsers();
-          const list: User[] = usersList.items || [];
-          let me = list[0];
-          if (!me) {
-            me = await sbEnsureUser("demo", "演示用户");
-            const refreshed = await sbListUsers();
-            setUsers(refreshed.items || []);
-          } else {
-            setUsers(list);
-          }
-          setCurrentUser(me);
-        } else {
-          const usersList = await api.listUsers();
-          const list: User[] = usersList.items || [];
-          let me = list[0];
-          if (!me) {
-            me = await api.createUser("demo", "演示用户");
-            const refreshed = await api.listUsers();
-            setUsers(refreshed.items || []);
-          } else {
-            setUsers(list);
-          }
-          setCurrentUser(me);
-        }
-      } catch (e: any) {
-        message.error(e.message || "初始化失败");
-      } finally {
-        setLoading(false);
-      }
-    };
-    init();
-  }, []);
+  useEffect(() => { /* 身份由 refine 管理 */ }, []);
 
-  useEffect(() => {
-    const load = async () => {
-      if (!currentUser?.id) return;
-      setLoading(true);
-      try {
-        if (usingSupabase) {
-          const data = await sbListPushes(currentUser.id, box);
-          setItems(data || []);
-        } else {
-          const data = await api.listPushes(currentUser.id, box);
-          setItems(data || []);
-        }
-      } catch (e: any) {
-        message.error(e.message || "加载失败");
-      } finally {
-        setLoading(false);
-      }
-    };
-    load();
-  }, [currentUser?.id, box]);
+  useEffect(() => { refetch(); }, [box, refetch]);
 
   useEffect(() => {
     if (!usingSupabase || !currentUser?.id) return;
@@ -90,15 +38,10 @@ export default function PushesPage() {
 
   const accept = async (p: Push) => {
     try {
-      if (usingSupabase) {
-        await sbUpdatePushStatus(p.id, "accepted");
-        if (currentUser?.id) await sbAddFollow(currentUser.id, p.product_id);
-      } else {
-        await api.updatePushStatus(p.id, "accepted");
-        if (currentUser?.id) await api.addFollow(currentUser.id, p.product_id);
-      }
+      await dataProvider.custom({ resource: "pushes", method: "post", meta: { path: `/${p.id}/status` }, payload: { status: "accepted" } });
+      if (identity?.id) await dataProvider.custom({ resource: "users", method: "post", meta: { path: `/${identity.id}/follows` }, payload: { product_id: p.product_id } });
       message.success("已接受并关注");
-      setItems(prev => prev.map(x => (x.id === p.id ? { ...x, status: "accepted" } : x)));
+      refetch();
     } catch (e: any) {
       message.error(e.message || "操作失败");
     }
@@ -106,18 +49,18 @@ export default function PushesPage() {
 
   const reject = async (p: Push) => {
     try {
-      if (usingSupabase) {
-        await sbUpdatePushStatus(p.id, "rejected");
-      } else {
-        await api.updatePushStatus(p.id, "rejected");
-      }
+      await dataProvider.custom({ resource: "pushes", method: "post", meta: { path: `/${p.id}/status` }, payload: { status: "rejected" } });
       message.success("已拒绝");
-      setItems(prev => prev.map(x => (x.id === p.id ? { ...x, status: "rejected" } : x)));
+      refetch();
     } catch (e: any) {
       message.error(e.message || "操作失败");
     }
   };
 
+  const canUpdate = (item: Push) => {
+    const { data: can } = useCan({ resource: "pushes", action: "update", params: { box, itemRecipientId: item.recipient_id } });
+    return can?.can;
+  };
   return (
     <div style={{ padding: 24 }}>
       <Space style={{ marginBottom: 16 }}>
@@ -126,7 +69,7 @@ export default function PushesPage() {
       </Space>
       <Space style={{ marginBottom: 12 }}>
         <Typography.Text>当前用户：</Typography.Text>
-        <Tag color="blue">{currentUser ? userLabel(currentUser) : "加载中"}</Tag>
+        <Tag color="blue">{identity ? userLabel(identity as any) : "加载中"}</Tag>
       </Space>
       <List
         loading={loading}
@@ -134,7 +77,7 @@ export default function PushesPage() {
         renderItem={(item) => (
           <List.Item
             actions={[
-              item.status === "pending" && box === "inbox" ? (
+              item.status === "pending" && box === "inbox" && canUpdate(item) ? (
                 <Space key="actions">
                   <Button type="primary" onClick={() => accept(item)}>接受</Button>
                   <Button danger onClick={() => reject(item)}>拒绝</Button>

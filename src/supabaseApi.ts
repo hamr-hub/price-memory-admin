@@ -140,7 +140,7 @@ export function sbSubscribePrices(handler: (payload: any) => void) {
 export async function sbListRuntimeNodes() {
   const { data, error } = await supabase
     .from("runtime_nodes")
-    .select("id,name,host,region,version,status,current_tasks,queue_size,total_completed,last_seen,latency_ms")
+    .select("id,name,host,region,version,status,current_tasks,queue_size,total_completed,last_seen,latency_ms,concurrency")
     .order("last_seen", { ascending: false });
   if (error) throw error;
   return data || [];
@@ -163,6 +163,17 @@ export function sbSubscribeRuntimeNodes(handler: (payload: any) => void) {
   return () => {
     supabase.removeChannel(channel);
   };
+}
+
+export async function sbUpdateNodeConcurrency(nodeId: number, concurrency: number) {
+  const { data, error } = await supabase
+    .from("runtime_nodes")
+    .update({ concurrency })
+    .eq("id", nodeId)
+    .select("*")
+    .single();
+  if (error) throw error;
+  return data;
 }
 
 export async function sbCreateNodeCommand(nodeId: number, command: string, payload?: any) {
