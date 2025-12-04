@@ -39,8 +39,8 @@ export function parseCodegenToSteps(script: string, lang: "python" | "javascript
     if ((m = R.hover.exec(line))) { push({ action: "wait_for_selector", selector: m[2] }); push({ action: "hover", selector: m[2] }); continue; }
     if ((m = R.press.exec(line))) { push({ action: "press", selector: m[2], value: m[4] }); continue; }
     if ((m = R.locatorClick.exec(line))) { push({ action: "click", selector: m[2] }); continue; }
-    if ((m = R.getByRoleClick.exec(line))) { const name = m[4]; push({ action: "wait_for_selector", selector: `text=${name}` }); push({ action: "click", selector: `text=${name}` }); continue; }
-    if ((m = R.getByTextClick.exec(line))) { const text = m[2]; push({ action: "wait_for_selector", selector: `text=${text}` }); push({ action: "click", selector: `text=${text}` }); continue; }
+    if ((m = R.getByRoleClick.exec(line))) { const role = m[2]; const name = m[4]; push({ action: "by_role_click", role, name }); continue; }
+    if ((m = R.getByTextClick.exec(line))) { const text = m[2]; push({ action: "by_text_click", text }); continue; }
   }
   return steps;
 }

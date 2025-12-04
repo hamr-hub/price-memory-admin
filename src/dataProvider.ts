@@ -25,10 +25,85 @@ export const dataProvider: DataProvider = {
     if (resource === "products") {
       const page = pagination?.current ?? 1;
       const size = pagination?.pageSize ?? 20;
-      const data: any = await gql(`query($page:Int,$size:Int){ products(page:$page,size:$size){ items total page size } }`, { page, size });
-      const items = data?.products?.items || [];
-      const total = data?.products?.total ?? items.length;
-      return { data: items, total };
+      let search = "";
+      let category = "";
+      let updated_from = "";
+      let updated_to = "";
+      let price_min: string | number | "" = "";
+      let price_max: string | number | "" = "";
+      const sorter = Array.isArray(params?.sorters) && params.sorters[0] ? params.sorters[0] : undefined;
+      if (Array.isArray(filters)) {
+        for (const f of filters) {
+          const val = f?.value;
+          if (val === undefined || val === null || val === "") continue;
+          if (f.field === "name" || f.field === "url" || f.field === "search") {
+            search = String(val);
+          }
+          if (f.field === "category") {
+            category = String(val);
+          }
+          if (f.field === "updated_from") {
+            updated_from = typeof val === "string" ? val : (val?.toISOString?.() || String(val));
+          }
+          if (f.field === "updated_to") {
+            updated_to = typeof val === "string" ? val : (val?.toISOString?.() || String(val));
+          }
+          if (f.field === "price_min") {
+            price_min = typeof val === "number" ? val : Number(val);
+          }
+          if (f.field === "price_max") {
+            price_max = typeof val === "number" ? val : Number(val);
+          }
+        }
+      }
+      try {
+        const data: any = await gql(
+          `query(
+            $page:Int,$size:Int,
+            $search:String,$category:String,
+            $updated_from:String,$updated_to:String,
+            $price_min:Float,$price_max:Float,
+            $sort_by:String,$order:String
+          ){
+            products(
+              page:$page,size:$size,
+              search:$search,category:$category,
+              updated_from:$updated_from,updated_to:$updated_to,
+              price_min:$price_min,price_max:$price_max,
+              sort_by:$sort_by,order:$order
+            ){ items total page size }
+          }`,
+          {
+            page,
+            size,
+            search: search || undefined,
+            category: category || undefined,
+            updated_from: updated_from || undefined,
+            updated_to: updated_to || undefined,
+            price_min: price_min === "" ? undefined : Number(price_min),
+            price_max: price_max === "" ? undefined : Number(price_max),
+            sort_by: sorter?.field || undefined,
+            order: sorter?.order || undefined,
+          }
+        );
+        const items = data?.products?.items || [];
+        const total = data?.products?.total ?? items.length;
+        return { data: items, total };
+      } catch {
+        const qs = new URLSearchParams({ page: String(page), size: String(size) });
+        if (search) qs.set("search", search);
+        if (category) qs.set("category", category);
+        if (updated_from) qs.set(FILTER_PARAM_MAP.updated_from || "updated_from", updated_from);
+        if (updated_to) qs.set(FILTER_PARAM_MAP.updated_to || "updated_to", updated_to);
+        if (price_min !== "") qs.set(FILTER_PARAM_MAP.price_min || "price_min", String(price_min));
+        if (price_max !== "") qs.set(FILTER_PARAM_MAP.price_max || "price_max", String(price_max));
+        if (sorter?.field) qs.set("sort_by", String(sorter.field));
+        if (sorter?.order) qs.set("order", String(sorter.order));
+        const json: any = await http(`${API_BASE}/products/search?${qs.toString()}`);
+        const items = json.data?.items || [];
+        const total = json.data?.total ?? items.length;
+        return { data: items, total };
+      }
     }
     if (resource === "alerts") {
       const userId = params?.filters?.find((f: any) => f.field === "user_id")?.value;
@@ -95,27 +170,62 @@ export const dataProvider: DataProvider = {
       const end_date = params?.filters?.find((f: any) => f.field === "end_date")?.value || "";
       const min_members = params?.filters?.find((f: any) => f.field === "min_members")?.value;
       const max_members = params?.filters?.find((f: any) => f.field === "max_members")?.value;
+      const owner_only = params?.filters?.find((f: any) => f.field === "owner_only")?.value;
+      const owner_id = params?.filters?.find((f: any) => f.field === "owner_id")?.value;
+      const min_products = params?.filters?.find((f: any) => f.field === "min_products")?.value;
+      const max_products = params?.filters?.find((f: any) => f.field === "max_products")?.value;
+      const sort_by = params?.filters?.find((f: any) => f.field === "sort_by")?.value;
+      const sort_order = params?.filters?.find((f: any) => f.field === "sort_order")?.value;
       const qs = new URLSearchParams({ page: String(page), size: String(size) });
       if (search) qs.set("search", String(search));
       if (start_date) qs.set("start_date", String(start_date));
       if (end_date) qs.set("end_date", String(end_date));
       if (min_members !== undefined) qs.set("min_members", String(min_members));
       if (max_members !== undefined) qs.set("max_members", String(max_members));
+      if (owner_only !== undefined) qs.set("owner_only", String(owner_only));
+      if (owner_id !== undefined) qs.set("owner_id", String(owner_id));
+      if (min_products !== undefined) qs.set("min_products", String(min_products));
+      if (max_products !== undefined) qs.set("max_products", String(max_products));
+      if (sort_by) qs.set("sort_by", String(sort_by));
+      if (sort_order) qs.set("sort_order", String(sort_order));
       const json: any = await http(`${API_BASE}/users/${user?.id}/collections?${qs.toString()}`);
       const data = json.data?.items || [];
       const total = json.data?.total ?? data.length;
       return { data, total };
     }
     if (resource === "pushes") {
-      const userId = params?.filters?.find((f: any) => f.field === "user_id")?.value;
-      const box = params?.filters?.find((f: any) => f.field === "box")?.value;
-      const status = params?.filters?.find((f: any) => f.field === "status")?.value || "";
       const page = pagination?.current ?? 1;
       const size = pagination?.pageSize ?? 10;
-      if (!userId) throw new Error("user_id is required for pushes list");
       const qs = new URLSearchParams({ page: String(page), size: String(size) });
-      if (box) qs.set("box", String(box));
-      if (status && status !== "all") qs.set("status", String(status));
+      let userId: any;
+      if (Array.isArray(filters)) {
+        for (const f of filters) {
+          if (f?.value === undefined || f?.value === null || f?.value === "") continue;
+          const field: string = String(f.field);
+          const op: string = String(f.operator || "eq");
+          const val = encodeURIComponent(
+            typeof f.value === "string" ? f.value : typeof f.value === "number" ? String(f.value) : (f.value?.toISOString?.() || String(f.value))
+          );
+          if (field === "user_id") { userId = f.value; continue; }
+          if (field === "box") { qs.set("box", String(f.value)); continue; }
+          if (field === "status") { qs.set("status", String(f.value)); continue; }
+          if (op === "contains") { qs.set(`${field}_like`, String(f.value)); continue; }
+          if (field === "created_from" || field === "created_to" || field === "updated_from" || field === "updated_to") {
+            qs.set(field, String(f.value));
+            continue;
+          }
+          qs.set(field, String(f.value));
+        }
+      }
+      if (!userId) throw new Error("user_id is required for pushes list");
+      // sorters support: expect `sort=field:asc|desc`
+      if (Array.isArray(params?.sorters) && params.sorters.length) {
+        const s = params.sorters[0];
+        if (s?.field && s?.order) {
+          const dir = String(s.order) === "ascend" ? "asc" : "desc";
+          qs.set("sort", `${String(s.field)}:${dir}`);
+        }
+      }
       const json: any = await http(`${API_BASE}/users/${userId}/pushes?${qs.toString()}`);
       const data = json.data?.items ?? json.data ?? [];
       const total = json.data?.total ?? data.length;

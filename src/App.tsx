@@ -25,6 +25,7 @@ import ProductsEdit from "./pages/ProductsEdit";
 import ProductsShow from "./pages/ProductsShow";
 import PublicPoolPage from "./pages/PublicPool";
 import CollectionsListPage from "./pages/CollectionsList";
+import PublicCollectionsPage from "./pages/PublicCollections";
 import CollectionShowPage from "./pages/CollectionShow";
 import { Header } from "./components/header";
 import PushesPage from "./pages/Pushes";
@@ -129,6 +130,7 @@ function App() {
                   { name: "products", list: "/products", create: "/products/create", edit: "/products/edit/:id", show: "/products/show/:id" },
                   { name: "public-pool", list: "/pool" },
                   { name: "collections", list: "/collections", show: "/collections/show/:id" },
+                  { name: "public-collections", list: "/collections/public" },
                   { name: "pushes", list: "/pushes" },
                   { name: "nodes", list: "/nodes" },
                   { name: "crawl-test", list: "/crawl-test" },
@@ -156,6 +158,7 @@ function App() {
                     <Route path="/products/show/:id" element={<ProductsShow />} />
                     <Route path="/pool" element={<PublicPoolPage />} />
                     <Route path="/collections" element={<CollectionsListPage />} />
+                    <Route path="/collections/public" element={<PublicCollectionsPage />} />
                     <Route path="/collections/show/:id" element={<CollectionShowPage />} />
                     <Route path="/pushes" element={<PushesPage />} />
                     <Route path="/nodes" element={<NodesPage />} />

@@ -1,5 +1,5 @@
 import { List } from "@refinedev/antd";
-import { Table, Button, Modal, Form, Input, message, Space, DatePicker, InputNumber } from "antd";
+import { Table, Button, Modal, Form, Input, message, Space, DatePicker, InputNumber, Switch, Select } from "antd";
 import { useTable, useCreate, useNavigation, useGetIdentity, useSubscription } from "@refinedev/core";
 import React from "react";
 
@@ -13,6 +13,11 @@ const CollectionsListPage: React.FC = () => {
   const [range, setRange] = React.useState<[any, any] | null>(null);
   const [minMembers, setMinMembers] = React.useState<number | undefined>();
   const [maxMembers, setMaxMembers] = React.useState<number | undefined>();
+  const [ownerOnly, setOwnerOnly] = React.useState<boolean>(false);
+  const [sortBy, setSortBy] = React.useState<string>("created_at");
+  const [sortOrder, setSortOrder] = React.useState<string>("desc");
+  const [minProducts, setMinProducts] = React.useState<number | undefined>();
+  const [maxProducts, setMaxProducts] = React.useState<number | undefined>();
 
   React.useEffect(() => { /* 数据通过 useTable 加载 */ }, []);
 
@@ -42,6 +47,13 @@ const CollectionsListPage: React.FC = () => {
         ]); }} />
         <InputNumber placeholder="最少成员" min={0} value={minMembers} onChange={(v) => { setMinMembers(v as any); setFilters?.([{ field: "min_members", operator: "gte", value: v }]); }} />
         <InputNumber placeholder="最多成员" min={0} value={maxMembers} onChange={(v) => { setMaxMembers(v as any); setFilters?.([{ field: "max_members", operator: "lte", value: v }]); }} />
+        <InputNumber placeholder="最少商品" min={0} value={minProducts} onChange={(v) => { setMinProducts(v as any); setFilters?.([{ field: "min_products", operator: "gte", value: v }]); }} />
+        <InputNumber placeholder="最多商品" min={0} value={maxProducts} onChange={(v) => { setMaxProducts(v as any); setFilters?.([{ field: "max_products", operator: "lte", value: v }]); }} />
+        <Switch checked={ownerOnly} onChange={(v) => { setOwnerOnly(v); setFilters?.([{ field: "owner_only", operator: "eq", value: v }]); }} /> 只看我拥有
+        <Select value={sortBy} onChange={(v) => { setSortBy(v); setFilters?.([{ field: "sort_by", operator: "eq", value: v }, { field: "sort_order", operator: "eq", value: sortOrder }]); }}
+          options={[{ value: "created_at", label: "按创建时间" }, { value: "last_updated", label: "按最近更新" }, { value: "name", label: "按名称" }]} />
+        <Select value={sortOrder} onChange={(v) => { setSortOrder(v); setFilters?.([{ field: "sort_by", operator: "eq", value: sortBy }, { field: "sort_order", operator: "eq", value: v }]); }}
+          options={[{ value: "desc", label: "降序" }, { value: "asc", label: "升序" }]} />
         <Button type="primary" onClick={() => setOpen(true)}>新建集合</Button>
       </Space>
     }>

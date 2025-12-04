@@ -6,7 +6,8 @@ import { dataProvider } from "../dataProvider";
 import { usingSupabase, sbSearchUsers, sbCollectionShare, sbSearchPublicPool, sbCollectionAddProduct, sbSubscribeCollectionMembers, sbSubscribeCollectionProducts, sbCollectionExportCsv } from "../supabaseApi";
 import { downloadBlob } from "../utils/download";
 import { useCan } from "@refinedev/core";
-import { useShow, useCustom, useSubscription } from "@refinedev/core";
+import { useShow, useCustom, useSubscription, useUpdate } from "@refinedev/core";
+import { buildXlsxBlob } from "../utils/xlsx";
 
 const CollectionShowPage: React.FC = () => {
   const show: any = useShow({ resource: "collections" });
@@ -19,6 +20,17 @@ const CollectionShowPage: React.FC = () => {
   const [poolOptions, setPoolOptions] = React.useState<any[]>([]);
   const { data: canShare } = useCan({ resource: "collections", action: "share", params: { id: data?.id } });
   const { data: canExport } = useCan({ resource: "collections", action: "export", params: { id: data?.id } });
+  const [visibility, setVisibility] = React.useState<string>(data?.visibility || "private");
+  const [description, setDescription] = React.useState<string>(data?.description || "");
+  React.useEffect(() => { setVisibility(data?.visibility || "private"); setDescription(data?.description || ""); }, [data?.visibility, data?.description]);
+  const { mutateAsync: updateCollection } = useUpdate();
+  const onSaveMeta = async () => {
+    try {
+      await updateCollection({ resource: "collections", id: data.id, values: { visibility, description } });
+      message.success("已保存");
+      show?.queryResult?.refetch?.();
+    } catch (e: any) { message.error(e.message || "保存失败"); }
+  };
 
 
   const onShare = async () => {
@@ -84,9 +96,15 @@ const CollectionShowPage: React.FC = () => {
     if (!data?.id) return;
     if (usingSupabase) {
       try {
-        const csv = await sbCollectionExportCsv(Number(data.id));
-        const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
-        downloadBlob(blob, `collection_${data.id}.csv`);
+        const rows = (data.products || []).map((p: any) => ({ product_id: p.id, product_name: p.name, url: p.url, category: p.category }));
+        const headers = [
+          { key: "product_id", label: "产品ID" },
+          { key: "product_name", label: "产品名称" },
+          { key: "url", label: "链接" },
+          { key: "category", label: "类别" },
+        ];
+        const blob = buildXlsxBlob(`collection_${data.id}`, rows, headers);
+        downloadBlob(blob, `collection_${data.id}.xlsx`);
       } catch (e: any) {
         message.error(e.message || "导出失败");
       }
@@ -148,6 +166,9 @@ const CollectionShowPage: React.FC = () => {
         {canShare?.can && <Button type="primary" onClick={() => setShareOpen(true)}>分享成员</Button>}
         <Button onClick={() => setAddOpen(true)}>添加商品</Button>
         {canExport?.can && <Button onClick={onExport}>导出Excel</Button>}
+        <Select value={visibility} onChange={setVisibility} options={[{ value: "private", label: "私有" }, { value: "public", label: "公开" }]} style={{ width: 120 }} />
+        <Input value={description} onChange={(e) => setDescription(e.target.value)} placeholder="简介" style={{ width: 240 }} />
+        <Button onClick={onSaveMeta}>保存</Button>
       </Space>
       <Table
         dataSource={data.products || []}

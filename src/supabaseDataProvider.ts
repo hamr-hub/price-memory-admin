@@ -60,6 +60,18 @@ export const supabaseDataProvider: DataProvider = {
       if (error) throw error;
       return { data: data || [], total: count ?? (data?.length || 0) };
     }
+    if (resource === "public-collections") {
+      const page = pagination?.current ?? 1;
+      const size = pagination?.pageSize ?? 20;
+      const from = (page - 1) * size;
+      const to = from + size - 1;
+      let q = supabase.from("collections").select("id,name,description,visibility,created_at", { count: "exact" }).eq("visibility", "public").order("id", { ascending: false }).range(from, to);
+      const search = params?.filters?.find((f: any) => f.field === "search")?.value || "";
+      if (search) q = q.ilike("name", `%${String(search)}%`);
+      const { data, error, count } = await q;
+      if (error) throw error;
+      return { data: data || [], total: count ?? (data?.length || 0) };
+    }
     if (resource === "collections") {
       const me = await sbGetCurrentUserRow();
       const uid = me?.id;
@@ -169,6 +181,15 @@ export const supabaseDataProvider: DataProvider = {
     const { resource, id, variables } = params;
     if (resource === "products") {
       const { data, error } = await supabase.from("products").update(variables).eq("id", id).select("*").single();
+      if (error) throw error;
+      return { data: data as BaseRecord };
+    }
+    if (resource === "collections") {
+      const payload: any = {};
+      if (variables?.name !== undefined) payload.name = variables.name;
+      if (variables?.description !== undefined) payload.description = variables.description;
+      if (variables?.visibility !== undefined) payload.visibility = variables.visibility;
+      const { data, error } = await supabase.from("collections").update(payload).eq("id", id).select("*").single();
       if (error) throw error;
       return { data: data as BaseRecord };
     }

@@ -357,6 +357,44 @@ const CrawlTestPage: React.FC = () => {
           />
         </Card>
       )}
+
+      {!!metrics.length && (
+        <Card title="HAR 详情" style={{ marginTop: 16 }}>
+          <Table
+            rowKey={(r) => r.created_at + (r.type || "")}
+            dataSource={metrics.filter((m: any) => m.type === "har_details")}
+            pagination={false}
+            size="small"
+            columns={[
+              { title: "时间", dataIndex: "created_at" },
+              { title: "TTFB均值(ms)", dataIndex: "ttfb_avg_ms" },
+              { title: "TTFB P95(ms)", dataIndex: "ttfb_p95_ms" },
+            ]}
+          />
+          <Space style={{ marginTop: 12 }}>
+            <div style={{ minWidth: 300 }}>
+              <Typography.Text strong>失败域名</Typography.Text>
+              <Table
+                rowKey={(r) => r.domain}
+                dataSource={(metrics.find((m: any) => m.type === "har_details")?.fail_domains) || []}
+                pagination={false}
+                size="small"
+                columns={[{ title: "域名", dataIndex: "domain" }, { title: "次数", dataIndex: "count" }]}
+              />
+            </div>
+            <div style={{ minWidth: 500 }}>
+              <Typography.Text strong>重定向链</Typography.Text>
+              <Table
+                rowKey={(r) => r.from + r.to}
+                dataSource={(metrics.find((m: any) => m.type === "har_details")?.redirects) || []}
+                pagination={false}
+                size="small"
+                columns={[{ title: "来源", dataIndex: "from" }, { title: "目标", dataIndex: "to" }]}
+              />
+            </div>
+          </Space>
+        </Card>
+      )}
     </List>
   );
 };
