@@ -5,6 +5,7 @@ import { Link } from "react-router-dom";
 import { usingSupabase, sbSubscribePushes, sbSubscribePushesUpdate, sbSubscribePrices } from "../../supabaseApi";
 import React, { useContext } from "react";
 import { ColorModeContext } from "../../contexts/color-mode";
+import { checkApiStatus } from "../../api";
 
 const { Text } = Typography;
 const { useToken } = theme;
@@ -21,6 +22,7 @@ export const Header: React.FC<RefineThemedLayoutHeaderProps> = ({ sticky = true 
   const { mode, setMode } = useContext(ColorModeContext);
   const [pushBadge, setPushBadge] = React.useState(0);
   const [poolBadge, setPoolBadge] = React.useState(0);
+  const [apiStatus, setApiStatus] = React.useState("unknown");
 
   React.useEffect(() => {
     if (!usingSupabase || !user?.id) return;
@@ -33,6 +35,19 @@ export const Header: React.FC<RefineThemedLayoutHeaderProps> = ({ sticky = true 
       unsubPrices();
     };
   }, [user?.id]);
+
+  // 检查API连接状态
+  React.useEffect(() => {
+    const checkStatus = async () => {
+      const status = await checkApiStatus();
+      setApiStatus(status);
+    };
+    
+    checkStatus();
+    const interval = setInterval(checkStatus, 30000); // 每30秒检查一次
+    
+    return () => clearInterval(interval);
+  }, []);
 
   const headerStyles: React.CSSProperties = {
     backgroundColor: token.colorBgElevated,
@@ -49,9 +64,43 @@ export const Header: React.FC<RefineThemedLayoutHeaderProps> = ({ sticky = true 
     headerStyles.zIndex = 1;
   }
 
+  const getApiStatusColor = () => {
+    switch (apiStatus) {
+      case "connected": return "#52c41a";
+      case "disconnected": return "#ff4d4f";
+      case "error": return "#faad14";
+      default: return "#d9d9d9";
+    }
+  };
+
+  const getApiStatusText = () => {
+    switch (apiStatus) {
+      case "connected": return "API已连接";
+      case "disconnected": return "API连接断开";
+      case "error": return "API连接异常";
+      default: return "检查中...";
+    }
+  };
+
   return (
     <AntdLayout.Header style={headerStyles}>
       <Space>
+        {/* API状态指示器 */}
+        <Space size="small">
+          <div 
+            style={{
+              width: 8,
+              height: 8,
+              borderRadius: "50%",
+              backgroundColor: getApiStatusColor(),
+              display: "inline-block"
+            }}
+          />
+          <Text style={{ fontSize: "12px", color: token.colorTextSecondary }}>
+            {getApiStatusText()}
+          </Text>
+        </Space>
+        
         <Switch
           checkedChildren="🌛"
           unCheckedChildren="🔆"

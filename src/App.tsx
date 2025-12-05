@@ -28,6 +28,7 @@ import CollectionsListPage from "./pages/CollectionsList";
 import PublicCollectionsPage from "./pages/PublicCollections";
 import CollectionShowPage from "./pages/CollectionShow";
 import { Header } from "./components/header";
+import { checkApiStatus } from "./api";
 import PushesPage from "./pages/Pushes";
 import NodesPage from "./pages/Nodes";
 import CrawlTestPage from "./pages/CrawlTest";

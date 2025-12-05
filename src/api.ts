@@ -1,4 +1,36 @@
 export const API_BASE = (import.meta as any).env?.VITE_API_URL || "http://127.0.0.1:8000/api/v1";
+
+// API连接状态检查
+let apiStatus = "unknown";
+let lastCheck = 0;
+
+export async function checkApiStatus(): Promise<string> {
+  const now = Date.now();
+  if (now - lastCheck < 30000 && apiStatus !== "unknown") {
+    return apiStatus;
+  }
+  
+  try {
+    const response = await fetch(`${API_BASE}/system/status`, { 
+      method: 'GET',
+      timeout: 5000 
+    } as any);
+    
+    if (response.ok) {
+      apiStatus = "connected";
+    } else {
+      apiStatus = "error";
+    }
+  } catch (error) {
+    apiStatus = "disconnected";
+  }
+  
+  lastCheck = now;
+  return apiStatus;
+}
+
+// 定期检查API状态
+setInterval(checkApiStatus, 30000);
 export const FILTER_PARAM_MAP: Record<string, string> = {
   // 在此按需覆盖映射，如后端采用不同参数名：
   // 前端字段: 后端查询参数名
