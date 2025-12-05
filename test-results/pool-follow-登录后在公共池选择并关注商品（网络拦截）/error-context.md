@@ -18,34 +18,49 @@
         - generic [ref=e23]: ⭐️
         - generic [ref=e24]: If you find Refine useful, you can contribute to its growth by giving it a star on GitHub
         - generic [ref=e25]: ⭐️
-  - generic [ref=e27]:
-    - complementary [ref=e28]:
-      - generic [ref=e29]:
-        - link "Refine Project" [ref=e31] [cursor=pointer]:
-          - /url: /
-          - generic [ref=e32]:
-            - img [ref=e35]
-            - heading "Refine Project" [level=1] [ref=e39]
-        - menu [ref=e40]:
-          - menuitem "logout Logout" [ref=e41] [cursor=pointer]:
-            - img "logout" [ref=e42]:
-              - img [ref=e43]
-            - generic [ref=e45]: Logout
-      - button "left" [ref=e47] [cursor=pointer]:
-        - img "left" [ref=e48]:
-          - img [ref=e49]
-    - generic [ref=e51]:
-      - banner [ref=e52]:
-        - generic [ref=e53]:
-          - switch "🌛 🔆" [ref=e55] [cursor=pointer]:
-            - generic [ref=e57]:
-              - generic: 🌛
-              - generic: 🔆
-          - generic [ref=e59]:
-            - strong [ref=e62]: E2E用户
-            - link "共享池" [ref=e65] [cursor=pointer]:
-              - /url: /pool
-            - link "推送中心" [ref=e68] [cursor=pointer]:
-              - /url: /pushes
-      - main [ref=e69]
+  - generic [ref=e26]:
+    - generic [ref=e29]:
+      - link "Refine Project" [ref=e31] [cursor=pointer]:
+        - /url: /
+        - generic [ref=e32]:
+          - img [ref=e35]
+          - heading "Refine Project" [level=1] [ref=e39]
+      - generic [ref=e40]:
+        - heading "Sign in to your account" [level=3] [ref=e44]
+        - generic [ref=e45]:
+          - generic [ref=e46]:
+            - generic [ref=e48]:
+              - generic "Email" [ref=e50]
+              - textbox "Email" [ref=e54]
+            - generic [ref=e56]:
+              - generic "Password" [ref=e58]
+              - textbox "Password" [ref=e62]:
+                - /placeholder: ●●●●●●●●
+            - generic [ref=e63]:
+              - generic [ref=e64] [cursor=pointer]:
+                - checkbox "Remember me" [ref=e66]
+                - generic [ref=e68]: Remember me
+              - link "Forgot password?" [ref=e69] [cursor=pointer]:
+                - /url: /forgot-password
+            - button "Sign in" [ref=e75] [cursor=pointer]:
+              - generic [ref=e76]: Sign in
+          - generic [ref=e78]:
+            - text: Don’t have an account?
+            - link "Sign up" [ref=e79] [cursor=pointer]:
+              - /url: /register
+    - generic [ref=e80]:
+      - button "Element Selector" [ref=e81] [cursor=pointer]:
+        - img [ref=e82]
+        - button "Element Selector" [ref=e90]:
+          - img
+      - generic:
+        - iframe
+        - generic:
+          - img
+        - generic:
+          - img
+        - generic:
+          - img
+        - generic:
+          - img
 ```

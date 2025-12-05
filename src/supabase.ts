@@ -5,7 +5,7 @@ const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
 export const hasSupabase = !!(supabaseUrl && supabaseAnonKey);
 
-export const supabase = hasSupabase 
+export const supabase: any = hasSupabase 
   ? createClient(supabaseUrl, supabaseAnonKey)
   : {
       from() {
@@ -20,6 +20,13 @@ export const supabase = hasSupabase
           maybeSingle: async () => ({ data: null, error: null }),
           single: async () => ({ data: null, error: null }),
         } as any;
+      },
+      rpc: async () => ({ data: [], error: null }),
+      auth: {
+        async signInWithPassword() { return { data: {}, error: null }; },
+        async signOut() { return { error: null }; },
+        async getSession() { return { data: { session: null } }; },
+        async getUser() { return { data: { user: null } }; },
       },
       channel() {
         return {

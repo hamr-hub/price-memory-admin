@@ -118,6 +118,30 @@ const ProductsShow: React.FC = () => {
   const [target, setTarget] = React.useState<string>("");
   const [cooldown, setCooldown] = React.useState<number>(60);
   React.useEffect(() => {
+    const raw = localStorage.getItem("user");
+    const u = raw ? JSON.parse(raw) : null;
+    if (!u?.id) return;
+    (async () => {
+      try {
+        const res = await fetch(`${API_BASE}/users/${u.id}/preferences`);
+        const j = await res.json();
+        const d = j?.data || {};
+        if (typeof d.trend_ma_window === "number") setMaWindow(d.trend_ma_window);
+        if (typeof d.trend_bb_on === "boolean") setShowBollinger(d.trend_bb_on);
+      } catch {}
+    })();
+  }, []);
+  React.useEffect(() => {
+    const raw = localStorage.getItem("user");
+    const u = raw ? JSON.parse(raw) : null;
+    if (!u?.id) return;
+    (async () => {
+      try {
+        await fetch(`${API_BASE}/users/${u.id}/preferences`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ trend_ma_window: maWindow, trend_bb_on: showBollinger }) });
+      } catch {}
+    })();
+  }, [maWindow, showBollinger]);
+  React.useEffect(() => {
     const a = selectedAlert;
     if (!a) return;
     setChannel(a.channel || "inapp");
@@ -232,11 +256,11 @@ const ProductsShow: React.FC = () => {
           <DatePicker.RangePicker value={range} onChange={setRange} />
           <Button onClick={() => setComparePrev((v) => !v)}>{comparePrev ? "取消对比" : "对比上一区间"}</Button>
           <span>均线窗口</span>
-          <Select defaultValue={"10"} options={[{ value: "5", label: "5" }, { value: "10", label: "10" }, { value: "20", label: "20" }]} style={{ width: 80 }} onChange={(v) => (window._pm_ma = Number(v)) as any} />
+          <Select value={String(maWindow)} options={[{ value: "5", label: "5" }, { value: "10", label: "10" }, { value: "20", label: "20" }]} style={{ width: 80 }} onChange={(v) => setMaWindow(Number(v))} />
           <span>布林带</span>
-          <Select defaultValue={"on"} options={[{ value: "off", label: "关" }, { value: "on", label: "开" }]} style={{ width: 80 }} onChange={(v) => (window._pm_bb = v === "on") as any} />
+          <Select value={showBollinger ? "on" : "off"} options={[{ value: "off", label: "关" }, { value: "on", label: "开" }]} style={{ width: 80 }} onChange={(v) => setShowBollinger(v === "on")} />
         </Space>
-        <TrendChart data={viewTrend} metric={metric as any} overlayData={viewPrevTrend} maWindow={(window as any)._pm_ma || 10} showBollinger={(window as any)._pm_bb ?? true} />
+        <TrendChart data={viewTrend} metric={metric as any} overlayData={viewPrevTrend} maWindow={maWindow} showBollinger={showBollinger} />
       </Card>
       <Card size="small" style={{ marginTop: 12 }} title="价格告警">
         <Space style={{ marginBottom: 8 }}>

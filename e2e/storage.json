@@ -1,0 +1,13 @@
+{
+  "cookies": [],
+  "origins": [
+    {
+      "origin": "http://localhost:5173",
+      "localStorage": [
+        { "name": "token", "value": "demo-token" },
+        { "name": "role", "value": "admin" },
+        { "name": "user", "value": "{\"id\":1,\"name\":\"E2E用户\"}" }
+      ]
+    }
+  ]
+}

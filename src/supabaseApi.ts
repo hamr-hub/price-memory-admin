@@ -7,22 +7,23 @@ export async function sbListProducts() {
 }
 
 export async function sbListUsers() {
-  const { data, error } = await supabase.from("users").select("id,username,display_name,created_at").order("id", { ascending: false });
+  const { data, error } = await supabase.from("profiles").select("id,display_name,created_at,plan").order("created_at", { ascending: false });
   if (error) throw error;
-  return { items: data || [] };
+  return { items: (data || []).map((r: any) => ({ id: r.id, username: r.display_name || r.id, display_name: r.display_name, created_at: r.created_at })) } as any;
 }
 
 export async function sbEnsureUser(username: string, display_name?: string) {
-  const { data: exists, error: e1 } = await supabase.from("users").select("*").eq("username", username).limit(1).maybeSingle();
-  if (e1) throw e1;
-  if (exists) return exists;
-  const { data, error } = await supabase.from("users").insert([{ username, display_name, created_at: new Date().toISOString() }]).select("*").single();
+  const { data: userData } = await supabase.auth.getUser();
+  const user = userData.user;
+  if (!user) throw new Error("未登录");
+  const payload: any = { id: user.id, display_name: display_name || username, created_at: new Date().toISOString() };
+  const { data, error } = await supabase.from("profiles").upsert([payload], { onConflict: "id" }).select("*").single();
   if (error) throw error;
   return data;
 }
 
-export async function sbListUserFollows(userId: number) {
-  const { data: links, error } = await supabase.from("user_follows").select("product_id").eq("user_id", userId);
+export async function sbListUserFollows(userId?: string) {
+  const { data: links, error } = await supabase.from("user_follows").select("product_id");
   if (error) throw error;
   const ids = (links || []).map((x: any) => x.product_id);
   if (!ids.length) return [];
@@ -31,16 +32,18 @@ export async function sbListUserFollows(userId: number) {
   return data || [];
 }
 
-export async function sbAddFollow(userId: number, productId: number) {
-  const { error } = await supabase.from("user_follows").insert([{ user_id: userId, product_id: productId, created_at: new Date().toISOString() }]);
+export async function sbAddFollow(userIdOrProductId: number | string, maybeProductId?: number) {
+  const productId = typeof userIdOrProductId === "number" ? userIdOrProductId : maybeProductId as number;
+  const { data, error } = await supabase.rpc("rpc_follow_product", { product_id: productId });
   if (error && !String(error.message).includes("duplicate key")) throw error;
-  return { user_id: userId, product_id: productId };
+  return { product_id: productId };
 }
 
-export async function sbRemoveFollow(userId: number, productId: number) {
-  const { error } = await supabase.from("user_follows").delete().eq("user_id", userId).eq("product_id", productId);
+export async function sbRemoveFollow(userIdOrProductId: number | string, maybeProductId?: number) {
+  const productId = typeof userIdOrProductId === "number" ? userIdOrProductId : maybeProductId as number;
+  const { error } = await supabase.rpc("rpc_unfollow_product", { product_id: productId });
   if (error) throw error;
-  return { user_id: userId, product_id: productId };
+  return { product_id: productId };
 }
 
 export async function sbListFollowers(productId: number) {
@@ -48,12 +51,12 @@ export async function sbListFollowers(productId: number) {
   if (error) throw error;
   const ids = (links || []).map((x: any) => x.user_id);
   if (!ids.length) return [];
-  const { data, error: e2 } = await supabase.from("users").select("id,username,display_name").in("id", ids);
+  const { data, error: e2 } = await supabase.from("profiles").select("id,display_name").in("id", ids);
   if (e2) throw e2;
-  return data || [];
+  return (data || []).map((r: any) => ({ id: r.id, username: r.display_name || r.id, display_name: r.display_name }));
 }
 
-export async function sbCreatePush(senderId: number, recipientId: number, productId: number, message?: string) {
+export async function sbCreatePush(senderId: string, recipientId: string, productId: number, message?: string) {
   const { data, error } = await supabase
     .from("pushes")
     .insert([{ sender_id: senderId, recipient_id: recipientId, product_id: productId, message, status: "pending", created_at: new Date().toISOString(), updated_at: new Date().toISOString() }])
@@ -63,9 +66,11 @@ export async function sbCreatePush(senderId: number, recipientId: number, produc
   return data;
 }
 
-export async function sbListPushes(userId: number, box?: "inbox" | "outbox") {
-  const col = box === "outbox" ? "sender_id" : "recipient_id";
-  const { data, error } = await supabase.from("pushes").select("*").eq(col, userId).order("id", { ascending: false });
+export async function sbListPushes(userId?: string, box?: "inbox" | "outbox") {
+  let q = supabase.from("pushes").select("*").order("id", { ascending: false });
+  if (box === "outbox") q = q.eq("sender_id", userId || (await supabase.auth.getUser()).data.user?.id);
+  if (box === "inbox") q = q.eq("recipient_id", userId || (await supabase.auth.getUser()).data.user?.id);
+  const { data, error } = await q;
   if (error) throw error;
   return data || [];
 }
@@ -76,7 +81,7 @@ export async function sbUpdatePushStatus(pushId: number, status: "accepted" | "r
   return data;
 }
 
-export function sbSubscribePushes(userId: number, handler: (payload: any) => void) {
+export function sbSubscribePushes(userId: string, handler: (payload: any) => void) {
   const channel = supabase
     .channel("pushes:" + userId)
     .on(
@@ -90,7 +95,7 @@ export function sbSubscribePushes(userId: number, handler: (payload: any) => voi
   };
 }
 
-export function sbSubscribePushesUpdate(userId: number, handler: (payload: any) => void) {
+export function sbSubscribePushesUpdate(userId: string, handler: (payload: any) => void) {
   const channel = supabase
     .channel("pushes:update:" + userId)
     .on(
@@ -140,7 +145,7 @@ export function sbSubscribePrices(handler: (payload: any) => void) {
 export async function sbListRuntimeNodes() {
   const { data, error } = await supabase
     .from("runtime_nodes")
-    .select("id,name,host,region,version,status,current_tasks,queue_size,total_completed,last_seen,latency_ms,concurrency")
+    .select("id,name,host,region,version,status,current_tasks,queue_size,total_completed,last_seen,latency_ms,concurrency,auto_consume")
     .order("last_seen", { ascending: false });
   if (error) throw error;
   return data || [];
@@ -169,6 +174,17 @@ export async function sbUpdateNodeConcurrency(nodeId: number, concurrency: numbe
   const { data, error } = await supabase
     .from("runtime_nodes")
     .update({ concurrency })
+    .eq("id", nodeId)
+    .select("*")
+    .single();
+  if (error) throw error;
+  return data;
+}
+
+export async function sbUpdateNodeAutoConsume(nodeId: number, auto: boolean) {
+  const { data, error } = await supabase
+    .from("runtime_nodes")
+    .update({ auto_consume: auto })
     .eq("id", nodeId)
     .select("*")
     .single();
@@ -267,9 +283,9 @@ export async function sbEnsureAuthUser() {
   if (!user) return null;
   const email = user.email || user.user_metadata?.email || `user_${user.id}`;
   const display = user.user_metadata?.username || user.user_metadata?.full_name || email;
-  const { data: exists } = await supabase.from("users").select("id").eq("auth_uid", user.id).limit(1).maybeSingle();
+  const { data: exists } = await supabase.from("profiles").select("id").eq("id", user.id).limit(1).maybeSingle();
   if (exists) return exists;
-  const { data, error } = await supabase.from("users").insert([{ username: email, display_name: display, auth_uid: user.id, created_at: new Date().toISOString() }]).select("id").single();
+  const { data, error } = await supabase.from("profiles").insert([{ id: user.id, display_name: display, created_at: new Date().toISOString() }]).select("id").single();
   if (error) throw error;
   return data;
 }
@@ -308,7 +324,7 @@ export async function sbGetCurrentUserRow() {
   const { data: userData } = await supabase.auth.getUser();
   const user = userData.user;
   if (!user) return null;
-  const { data } = await supabase.from("users").select("id,username,display_name,auth_uid").eq("auth_uid", user.id).limit(1).maybeSingle();
+  const { data } = await supabase.from("profiles").select("id,display_name").eq("id", user.id).limit(1).maybeSingle();
   return data || null;
 }
 

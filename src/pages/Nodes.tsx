@@ -1,7 +1,7 @@
 import React from "react";
 import { List } from "@refinedev/antd";
-import { Table, Space, Button, Tag, InputNumber } from "antd";
-import { usingSupabase, sbListRuntimeNodes, sbSubscribeRuntimeNodes, sbCreateNodeCommand, sbUpdateNodeConcurrency } from "../supabaseApi";
+import { Table, Space, Button, Tag, InputNumber, Switch } from "antd";
+import { usingSupabase, sbListRuntimeNodes, sbSubscribeRuntimeNodes, sbCreateNodeCommand, sbUpdateNodeConcurrency, sbUpdateNodeAutoConsume } from "../supabaseApi";
 
 const NodesPage: React.FC = () => {
   const [items, setItems] = React.useState<any[]>([]);
@@ -72,6 +72,12 @@ const NodesPage: React.FC = () => {
             <Space>
               <InputNumber min={1} max={20} defaultValue={v || 1} onChange={(val) => { r._nextConcurrency = Number(val || 1); }} />
               <Button size="small" onClick={async () => { if (!usingSupabase) return; const c = r._nextConcurrency ?? v ?? 1; await sbUpdateNodeConcurrency(r.id, c); }}>设置</Button>
+            </Space>
+          ) },
+          { title: "自动消费", dataIndex: "auto_consume", render: (v: boolean, r: any) => (
+            <Space>
+              <Switch checked={!!v} onChange={async (checked) => { if (!usingSupabase) return; await sbUpdateNodeAutoConsume(r.id, checked); }} />
+              <Button size="small" onClick={() => send(r, checked ? "consume_enable" : "consume_disable")}>同步命令</Button>
             </Space>
           ) },
           { title: "最后心跳", dataIndex: "last_seen" },

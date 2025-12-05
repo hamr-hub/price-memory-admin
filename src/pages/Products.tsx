@@ -1,5 +1,5 @@
 import { List, useTable, CreateButton, ShowButton, EditButton, DeleteButton } from "@refinedev/antd";
-import { Table, Space, Button, Form, Input, InputNumber, DatePicker, message, Modal } from "antd";
+import { Table, Space, Button, Form, Input, InputNumber, DatePicker, message } from "antd";
 import { useCan, useCustom, useSubscription } from "@refinedev/core";
 import React from "react";
 import { API_BASE, getApiKey } from "../api";
@@ -16,10 +16,6 @@ const ProductsPage: React.FC = () => {
   const [exportRange, setExportRange] = React.useState<any[] | null>(null);
   const [exportXlsxIds, setExportXlsxIds] = React.useState<string | null>(null);
   const [form] = Form.useForm();
-  const [aiOpen, setAiOpen] = React.useState(false);
-  const [aiLoading, setAiLoading] = React.useState(false);
-  const [aiResults, setAiResults] = React.useState<any[]>([]);
-  const [aiForm] = Form.useForm();
   const onSearch = (values: any) => {
     const filters: any[] = [];
     if (values.name) filters.push({ field: "name", operator: "contains", value: values.name });
@@ -79,41 +75,6 @@ const ProductsPage: React.FC = () => {
     }
   };
 
-  const onOpenAISearch = () => {
-    setAiOpen(true);
-    setAiResults([]);
-    aiForm.resetFields();
-  };
-
-  const runAISearch = async () => {
-    try {
-      const values = await aiForm.validateFields();
-      const payload: any = { text: values.text || undefined, image_url: values.image_url || undefined, top_k: values.top_k || 20, category: values.category || undefined };
-      setAiLoading(true);
-      const res = await fetch(`${API_BASE}/products/ai_search`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
-      setAiLoading(false);
-      if (!res.ok) throw new Error(await res.text());
-      const json = await res.json();
-      const items = json?.data?.items || [];
-      setAiResults(items);
-    } catch (e: any) {
-      setAiLoading(false);
-      message.error(e?.message || "AI搜索失败");
-    }
-  };
-
-  const reindexEmbeddings = async () => {
-    try {
-      const res = await fetch(`${API_BASE}/ai/index_products?limit=200&offset=0`, { method: "POST" });
-      if (!res.ok) throw new Error(await res.text());
-      const json = await res.json();
-      const indexed = json?.data?.indexed ?? 0;
-      message.success(`已索引 ${indexed} 条商品向量`);
-    } catch (e: any) {
-      message.error(e?.message || "索引失败");
-    }
-  };
-
   
 
   const onExportXlsx = async () => {
@@ -159,27 +120,8 @@ const ProductsPage: React.FC = () => {
     }
   };
 
-  const exportSingleXlsx = async (id: number) => {
-    try {
-      const apiKey = getApiKey();
-      const r = exportRange;
-      const sd = r && r[0] ? r[0].format("YYYY-MM-DD") : undefined;
-      const ed = r && r[1] ? r[1].format("YYYY-MM-DD") : undefined;
-      const params = new URLSearchParams();
-      if (sd) params.set("start_date", sd);
-      if (ed) params.set("end_date", ed);
-      const url = `${API_BASE}/products/${id}/export/xlsx${params.toString() ? `?${params.toString()}` : ""}`;
-      const res = await fetch(url, { headers: { ...(apiKey ? { "X-API-Key": apiKey } : {}) } });
-      if (!res.ok) throw new Error(await res.text());
-      const blob = await res.blob();
-      downloadBlob(blob, `product_${id}_prices.xlsx`);
-    } catch (e: any) {
-      message.error(e.message || "导出失败");
-    }
-  };
-
   return (
-    <List title="商品列表" headerButtons={<><CreateButton />{canExport?.can && <><DatePicker.RangePicker style={{ marginLeft: 8 }} onChange={(v) => setExportRange(v as any)} /><Button style={{ marginLeft: 8 }} onClick={onExport}>ZIP批量打包</Button><Button style={{ marginLeft: 8 }} onClick={onExportXlsx}>导出Excel</Button></>}<Button style={{ marginLeft: 8 }} onClick={onOpenAISearch}>AI搜索</Button><Button style={{ marginLeft: 8 }} onClick={reindexEmbeddings}>刷新嵌入</Button></>}> 
+    <List title="商品列表" headerButtons={<><CreateButton />{canExport?.can && <><DatePicker.RangePicker style={{ marginLeft: 8 }} onChange={(v) => setExportRange(v as any)} /><Button style={{ marginLeft: 8 }} onClick={onExport}>ZIP批量打包</Button><Button style={{ marginLeft: 8 }} onClick={onExportXlsx}>导出Excel</Button></>}</>}> 
       <Form form={form} layout="inline" onFinish={onSearch} style={{ marginBottom: 16 }}>
         <Form.Item name="name" label="名称"><Input allowClear placeholder="搜索名称" /></Form.Item>
         <Form.Item name="url" label="链接"><Input allowClear placeholder="搜索链接" /></Form.Item>
@@ -207,41 +149,11 @@ const ProductsPage: React.FC = () => {
                 <ShowButton size="small" recordItemId={record.id} />
                 <EditButton size="small" recordItemId={record.id} disabled={!canEdit?.can} />
                 <DeleteButton size="small" recordItemId={record.id} resource="products" disabled={!canDelete?.can} />
-                <Button size="small" onClick={() => exportSingle(record.id)}>导出CSV</Button>
-                <Button size="small" onClick={() => exportSingleXlsx(record.id)}>导出Excel</Button>
               </Space>
             ),
           },
         ]}
       />
-      <Modal title="AI 搜索（文本/图片）" open={aiOpen} onCancel={() => setAiOpen(false)} onOk={runAISearch} confirmLoading={aiLoading} width={800} okText="搜索">
-        <Form form={aiForm} layout="vertical">
-          <Form.Item name="text" label="文本"><Input.TextArea placeholder="输入商品描述、特征等" rows={3} /></Form.Item>
-          <Form.Item name="image_url" label="图片URL"><Input placeholder="输入图片地址（可选）" /></Form.Item>
-          <Form.Item name="category" label="类别"><Input placeholder="按类别过滤（可选）" /></Form.Item>
-          <Form.Item name="top_k" label="返回条数" initialValue={20}><InputNumber min={1} max={100} style={{ width: 120 }} /></Form.Item>
-        </Form>
-        <Table
-          dataSource={aiResults}
-          rowKey={(r) => r.product_id || r.id}
-          size="small"
-          columns={[
-            { title: "ID", dataIndex: "product_id", render: (v: any, r: any) => v ?? r.id },
-            { title: "名称", dataIndex: "name" },
-            { title: "链接", dataIndex: "url" },
-            { title: "类别", dataIndex: "category" },
-            { title: "得分", dataIndex: "score" },
-            {
-              title: "操作",
-              render: (_: any, r: any) => (
-                <Space>
-                  <ShowButton size="small" recordItemId={r.product_id || r.id} />
-                </Space>
-              ),
-            },
-          ]}
-        />
-      </Modal>
     </List>
   );
 };

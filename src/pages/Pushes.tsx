@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { List, Button, Space, Segmented, message, Typography, Tag, Input, DatePicker, Select, InputNumber } from "antd";
+import { List, Button, Space, Segmented, message, Typography, Tag } from "antd";
 import { useGetIdentity, useCan, useSubscription, useTable } from "@refinedev/core";
 import { dataProvider } from "../dataProvider";
 
@@ -10,22 +10,11 @@ export default function PushesPage() {
   const { data: identity } = useGetIdentity<User>();
   const [box, setBox] = useState<"inbox" | "outbox">("inbox");
   const [status, setStatus] = useState<"all" | "pending" | "accepted" | "rejected">("all");
-  const [search, setSearch] = useState<string>("");
-  const [range, setRange] = useState<any>(null);
-  const [sortField, setSortField] = useState<string>("created_at");
-  const [sortOrder, setSortOrder] = useState<"ascend" | "descend">("descend");
-  const [senderId, setSenderId] = useState<number | undefined>(undefined);
-  const [recipientId, setRecipientId] = useState<number | undefined>(undefined);
-  const { tableProps, setFilters, setSorters, tableQueryResult, refetch } = useTable<Push>({ resource: "pushes", filters: [
+  const { tableProps, setFilters, tableQueryResult, refetch } = useTable<Push>({ resource: "pushes", filters: [
     { field: "user_id", operator: "eq", value: identity?.id },
     { field: "box", operator: "eq", value: box },
     { field: "status", operator: "eq", value: status === "all" ? undefined : status },
-    { field: "message", operator: "contains", value: search || undefined },
-    { field: "created_from", operator: "eq", value: range?.[0] ? range[0].toISOString() : undefined },
-    { field: "created_to", operator: "eq", value: range?.[1] ? range[1].toISOString() : undefined },
-    { field: "sender_id", operator: "eq", value: senderId },
-    { field: "recipient_id", operator: "eq", value: recipientId },
-  ], sorters: [{ field: sortField, order: sortOrder }], pagination: { pageSize: 10 } });
+  ], pagination: { pageSize: 10 } });
   const items = (tableProps as any)?.dataSource || [];
   const loading = tableQueryResult?.isLoading;
 
@@ -38,14 +27,8 @@ export default function PushesPage() {
       { field: "user_id", operator: "eq", value: identity?.id },
       { field: "box", operator: "eq", value: box },
       { field: "status", operator: "eq", value: status === "all" ? undefined : status },
-      { field: "message", operator: "contains", value: search || undefined },
-      { field: "created_from", operator: "eq", value: range?.[0] ? range[0].toISOString() : undefined },
-      { field: "created_to", operator: "eq", value: range?.[1] ? range[1].toISOString() : undefined },
-      { field: "sender_id", operator: "eq", value: senderId },
-      { field: "recipient_id", operator: "eq", value: recipientId },
     ], "replace");
-    setSorters([{ field: sortField, order: sortOrder }]);
-  }, [box, status, search, range, sortField, sortOrder, senderId, recipientId, identity?.id, setFilters, setSorters]);
+  }, [box, status, identity?.id, setFilters]);
 
   useSubscription({ channel: "pushes", types: ["created","updated","deleted"], params: { resource: { name: "pushes" } } as any, callback: () => { refetch(); } });
 
@@ -84,15 +67,6 @@ export default function PushesPage() {
       </Space>
       <Space style={{ marginBottom: 12 }}>
         <Segmented options={[{ label: "全部", value: "all" }, { label: "待处理", value: "pending" }, { label: "已接受", value: "accepted" }, { label: "已拒绝", value: "rejected" }]} value={status} onChange={(v) => setStatus(v as any)} />
-        <Input.Search placeholder="搜索消息内容" allowClear style={{ width: 240 }} onSearch={(v) => setSearch(v)} onChange={(e) => setSearch(e.target.value)} value={search} />
-        <DatePicker.RangePicker showTime onChange={(v) => setRange(v)} value={range} />
-        <Select value={sortField} style={{ width: 160 }} onChange={(v) => setSortField(v)} options={[
-          { label: "按创建时间", value: "created_at" },
-          { label: "按更新时间", value: "updated_at" },
-        ]} />
-        <Segmented options={[{ label: "升序", value: "ascend" }, { label: "降序", value: "descend" }]} value={sortOrder} onChange={(v) => setSortOrder(v as any)} />
-        <InputNumber placeholder="发送者ID" value={senderId} onChange={(v) => setSenderId(v as number)} style={{ width: 140 }} />
-        <InputNumber placeholder="接收者ID" value={recipientId} onChange={(v) => setRecipientId(v as number)} style={{ width: 140 }} />
       </Space>
       <Space style={{ marginBottom: 12 }}>
         <Typography.Text>当前用户：</Typography.Text>
@@ -118,7 +92,7 @@ export default function PushesPage() {
             <List.Item.Meta
               title={<Space>
                 <Typography.Text>商品 #{item.product_id}</Typography.Text>
-                {item.message && <Tag>{highlightMessage(item.message, search)}</Tag>}
+                {item.message && <Tag>{item.message}</Tag>}
               </Space>}
               description={
                 box === "inbox" ? (
@@ -133,14 +107,4 @@ export default function PushesPage() {
       />
     </div>
   );
-}
-
-function highlightMessage(text: string, q: string) {
-  if (!q) return text;
-  const i = text.toLowerCase().indexOf(q.toLowerCase());
-  if (i === -1) return text;
-  const before = text.slice(0, i);
-  const match = text.slice(i, i + q.length);
-  const after = text.slice(i + q.length);
-  return <span>{before}<mark>{match}</mark>{after}</span>;
 }

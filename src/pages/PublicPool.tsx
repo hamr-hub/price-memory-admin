@@ -65,7 +65,7 @@ const PublicPoolPage: React.FC = () => {
   };
 
   return (
-    <List title="公共商品池" headerButtons={
+    <List title={<span data-testid="public-pool-title">公共商品池</span>} headerButtons={
       <Space>
         <Input.Search placeholder="搜索名称" allowClear onSearch={(v) => setFilters?.([{ field: "search", operator: "contains", value: v }])} />
         {!usingSupabase ? (
@@ -98,7 +98,7 @@ const PublicPoolPage: React.FC = () => {
             { title: "链接", dataIndex: "url" },
             { title: "类别", dataIndex: "category" },
             { title: "更新时间", dataIndex: "last_updated" },
-            { title: "操作", render: (_, record: any) => (<Button type="primary" disabled={!canSelect?.can} onClick={() => onSelect(record)}>选择并关注</Button>) },
+            { title: "操作", render: (_, record: any) => (<Button data-testid="select-follow-btn" type="primary" disabled={!canSelect?.can} onClick={() => onSelect(record)}>选择并关注</Button>) },
           ]}
         />
       ) : (
@@ -110,7 +110,7 @@ const PublicPoolPage: React.FC = () => {
             { title: "名称", dataIndex: "name" },
             { title: "链接", dataIndex: "url" },
             { title: "类别", dataIndex: "category" },
-            { title: "操作", render: (_, record: any) => (<Button type="primary" disabled={!canSelect?.can} onClick={() => onSelect(record)}>选择并关注</Button>) },
+            { title: "操作", render: (_, record: any) => (<Button data-testid="select-follow-btn" type="primary" disabled={!canSelect?.can} onClick={() => onSelect(record)}>选择并关注</Button>) },
           ]}
         />
       )}

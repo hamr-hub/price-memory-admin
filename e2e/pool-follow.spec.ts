@@ -11,16 +11,16 @@ test("登录后在公共池选择并关注商品（网络拦截）", async ({ pa
     await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(resp) });
   });
 
-  await page.addInitScript(() => {
+  await page.goto("/");
+  await page.evaluate(() => {
     localStorage.setItem("token", "demo-token");
     localStorage.setItem("role", "admin");
     localStorage.setItem("user", JSON.stringify({ id: 1, name: "E2E用户" }));
   });
-
   await page.goto("/pool");
   await expect(page).toHaveURL(/\/pool$/);
-  await expect(page.getByText("公共商品池")).toBeVisible();
+  await expect(page.getByTestId("public-pool-title")).toBeVisible();
   await expect(page.getByText("E2E商品")).toBeVisible();
-  await page.getByRole("button", { name: "选择并关注" }).click();
+  await page.getByTestId("select-follow-btn").click();
   await expect(page.getByText("已选择并关注")).toBeVisible();
 });

@@ -112,4 +112,12 @@ export const api = {
     const j: any = await http(`${API_BASE}/alert_events/${eventId}/retry`, { method: "POST" });
     return j.data;
   },
+  async getUserPreferences(userId: number) {
+    const j: any = await http(`${API_BASE}/users/${userId}/preferences`);
+    return j.data || {};
+  },
+  async updateUserPreferences(userId: number, prefs: { trend_ma_window?: number; trend_bb_on?: boolean }) {
+    const j: any = await http(`${API_BASE}/users/${userId}/preferences`, { method: "POST", body: JSON.stringify(prefs) });
+    return j.data;
+  },
 };
