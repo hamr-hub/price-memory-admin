@@ -12,6 +12,7 @@ import routerProvider, {
 import { App as AntdApp } from "antd";
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { ThemedLayout } from "@refinedev/antd";
+import { MonitorOutlined } from "@ant-design/icons";
 import type { AccessControlProvider, LiveProvider } from "@refinedev/core";
 import { dataProvider } from "./dataProvider";
 import { supabaseDataProvider } from "./supabaseDataProvider";
@@ -27,6 +28,7 @@ import PublicPoolPage from "./pages/PublicPool";
 import CollectionsListPage from "./pages/CollectionsList";
 import PublicCollectionsPage from "./pages/PublicCollections";
 import CollectionShowPage from "./pages/CollectionShow";
+import MonitorDashboard from "./pages/MonitorDashboard";
 import { Header } from "./components/header";
 import { checkApiStatus } from "./api";
 import PushesPage from "./pages/Pushes";
@@ -128,6 +130,7 @@ function App() {
                 accessControlProvider={accessControlProvider}
                 liveProvider={supabaseLiveProvider as LiveProvider}
                 resources={[
+                  { name: "monitor", list: "/monitor", meta: { label: "实时监控", icon: <MonitorOutlined /> } },
                   { name: "products", list: "/products", create: "/products/create", edit: "/products/edit/:id", show: "/products/show/:id" },
                   { name: "public-pool", list: "/pool" },
                   { name: "collections", list: "/collections", show: "/collections/show/:id" },
@@ -153,6 +156,7 @@ function App() {
                     }
                   >
                     <Route index element={<Navigate to="/products" replace />} />
+                    <Route path="/monitor" element={<MonitorDashboard />} />
                     <Route path="/products" element={<ProductsPage />} />
                     <Route path="/products/create" element={<ProductsCreate />} />
                     <Route path="/products/edit/:id" element={<ProductsEdit />} />
